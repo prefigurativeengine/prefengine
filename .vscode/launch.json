@@ -8,12 +8,12 @@
             "program": "${workspaceRoot}/sandbox/target/32/debug/sandbox.exe",
             "args": [],
             "cwd": "${workspaceRoot}/sandbox/target/32/debug/",
-            "stopAtEntry": true,
+            "stopAtEntry": false,
             "sourceFileMap": {"\\rustc\\07dca489ac2d933c78d3c5158e3f43beefeb02ce\\": 
                 "C:\\Users\\HP\\.rustup\\toolchains\\stable-i686-pc-windows-msvc\\lib\\rustlib\\src\\rust\\"
             },
             //"environment": []
-            //"externalConsole": true,
+            "externalConsole": true,
             //"preLaunchTask": "currentbuild",
             //"console": "integratedTerminal"
             //"sourceLanguages": ["rust"]
