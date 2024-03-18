@@ -13,3 +13,5 @@ sandbox/Cargo.lock
 *.pdb
 
 settings.json
+
+build/

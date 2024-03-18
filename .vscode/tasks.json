@@ -2,26 +2,20 @@
     // See https://go.microsoft.com/fwlink/?LinkId=733558
     // for the documentation about the tasks.json format
 
-    // SET CARGO_TARGET_DIR=C:\Users\HP\OneDrive\SAND\catalysis\catalysis\catalysis\targets\debug\32
-
-    // SET CARGO_TARGET_DIR=C:\Users\HP\OneDrive\SAND\catalysis\catalysis\sandbox\targets\debug\32
-
-    // cargo build -p catalysis
-
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "currentbuild",
+            "label": "win_32",
             "dependsOn": [
-                "win_build_cat",
-                "cpylib"
+                "win_build_32",
+                "cpy-search-lib"
             ],
             "group": "build",
             "dependsOrder": "sequence"
         },
 
         {
-            "label": "win_build_cat",
+            "label": "win_build_32",
             "type": "shell",
             "command": ".\\win_build_cargo32.bat",
             "args": [
@@ -40,15 +34,37 @@
             },
         },
         {
-            "label": "cpylib",
+            "label": "cpy-cat-lib",
             "type": "shell",
             "command": "copy",
             "args": [
                 "${workspaceRoot}/catalysis/target/32/debug/catalysis.*",
-                "${workspaceRoot}/sandbox/target/32/debug",
+                "${workspaceRoot}/build",
             ],
             "presentation": {
             },
-        }
+        },
+        {
+            "label": "cpy-search-lib",
+            "type": "shell",
+            "command": "copy",
+            "args": [
+                "C:/Users/HP/.rustup/toolchains/stable-i686-pc-windows-msvc/lib/rustlib/i686-pc-windows-msvc/lib/*.dll",
+                "${workspaceRoot}/build/i686-pc-windows-msvc/debug/",
+            ],
+            "presentation": {
+            },
+        },
+        {
+            "label": "cpy-sandbox",
+            "type": "shell",
+            "command": "copy",
+            "args": [
+                "${workspaceRoot}/catalysis/target/32/debug/sandbox.*",
+                "${workspaceRoot}/build",
+            ],
+            "presentation": {
+            },
+        },
     ]
 }

@@ -1,0 +1,6 @@
+[workspace]
+members = ["catalysis", "sandbox"]
+resolver = "2"
+
+
+

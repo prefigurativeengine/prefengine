@@ -1,15 +1,16 @@
 @echo off
 
 REM Check if the argument is provided
-if "%~1" == "" (
-    echo Please provide the name of the Cargo package.
-    exit /b
-)
+@REM if "%~1" == "" (
+@REM     echo Please provide the name of the Cargo package.
+@REM     exit /b
+@REM )
 
 REM Set the environment variable CARGO_TARGET_DIR
-set "CARGO_TARGET_DIR=%cd%\%1\target\32"
+REM set "CARGO_TARGET_DIR=%cd%\%1\target\32"
+set "RUSTFLAGS=-C prefer-dynamic"
 
-cd %1
+REM cd %1
 
 REM Call the cargo build command
-cargo build -p %1
+cargo build --workspace --target i686-pc-windows-msvc --target-dir build

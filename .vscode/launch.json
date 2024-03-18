@@ -5,16 +5,16 @@
             "name": "(Windows) Launch",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceRoot}/sandbox/target/32/debug/sandbox.exe",
+            "program": "${workspaceRoot}/build/i686-pc-windows-msvc/debug/sandbox.exe",
             "args": [],
-            "cwd": "${workspaceRoot}/sandbox/target/32/debug/",
+            "cwd": "${workspaceRoot}/build/i686-pc-windows-msvc",
             "stopAtEntry": false,
             "sourceFileMap": {"\\rustc\\07dca489ac2d933c78d3c5158e3f43beefeb02ce\\": 
                 "C:\\Users\\HP\\.rustup\\toolchains\\stable-i686-pc-windows-msvc\\lib\\rustlib\\src\\rust\\"
             },
             //"environment": []
             "externalConsole": true,
-            //"preLaunchTask": "currentbuild",
+            "preLaunchTask": "win_32",
             //"console": "integratedTerminal"
             //"sourceLanguages": ["rust"]
         },
