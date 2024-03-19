@@ -12,5 +12,5 @@ crate-type = ["dylib"]
 log = "0.4"
 simple_logger = "4"
 time = "0.3"
-
-
+axum = "0.7"
+tokio = { version = "1.36", features = ["macros", "rt-multi-thread"]}
