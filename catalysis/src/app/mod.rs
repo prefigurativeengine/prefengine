@@ -1,5 +1,5 @@
 //pub use self::cat_engine;
-
+use crate::local_server;
 
 pub mod cat_engine {
 
@@ -13,9 +13,7 @@ pub mod cat_engine {
         }
 
         pub fn run(&self) {
-            loop {
-                
-            }
+            crate::local_server::start();
         }
 
         
