@@ -13,14 +13,13 @@ mod local_server;
 // use externs
 use log;
 
-
 pub trait Server {
     fn run(&self);
 }
 
 pub fn main(s: Box<dyn Server>) {
     cat_log::init_styled_logger();
-    log::warn!("Initialized log");
+    log::info!("Initialized log");
 
     s.run();
 }
