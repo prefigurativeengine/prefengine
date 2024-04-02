@@ -18,9 +18,6 @@
             "label": "win_build_32",
             "type": "shell",
             "command": ".\\win_build_cargo32.bat",
-            "args": [
-                "catalysis",
-            ],
             "presentation":{
                 "echo": true,
                 "reveal": "always",
