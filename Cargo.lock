@@ -388,6 +388,7 @@ name = "catalysis"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "kuska-handshake",
  "kuska-ssb",
  "log",
  "simple_logger",

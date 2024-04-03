@@ -19,3 +19,4 @@ tokio = { version = "1.36", features = ["macros", "rt-multi-thread"]}
 
 # ssb server
 kuska-ssb = "0.4"
+kuska-handshake = "0.2"
