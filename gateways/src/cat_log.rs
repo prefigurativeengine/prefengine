@@ -8,8 +8,5 @@ pub fn init_styled_logger() {
     .with_timestamp_format(format_description!("[year]-[month]-[day] [hour]:[minute]:[second]"))
     .init()
     .unwrap();
-    
-    let it: u64 = 7832647328647846237u64;
-    it.to
 }
 
