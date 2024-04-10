@@ -35,7 +35,7 @@
             "type": "shell",
             "command": "copy",
             "args": [
-                "${workspaceRoot}/catalysis/target/32/debug/catalysis.*",
+                "${workspaceRoot}/gateways/target/32/debug/gateways.*",
                 "${workspaceRoot}/build",
             ],
             "presentation": {
@@ -57,7 +57,7 @@
             "type": "shell",
             "command": "copy",
             "args": [
-                "${workspaceRoot}/catalysis/target/32/debug/sandbox.*",
+                "${workspaceRoot}/gateways/target/32/debug/sandbox.*",
                 "${workspaceRoot}/build",
             ],
             "presentation": {
