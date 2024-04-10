@@ -1,6 +1,6 @@
 
-extern crate catalysis;
-use catalysis::{ app::cat_engine as cat_engine, Server };
+extern crate gateways;
+use gateways::{ app::cat_engine as cat_engine, Server };
 
 
 pub struct Sandbox {
@@ -23,5 +23,5 @@ impl Server for Sandbox  {
 
 fn main() {
     let s: Box<Sandbox> = Box::new(Sandbox::new());
-    catalysis::main(s);
+    gateways::main(s);
 }
