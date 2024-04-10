@@ -9,5 +9,7 @@ pub fn init_styled_logger() {
     .init()
     .unwrap();
     
+    let it: u64 = 7832647328647846237u64;
+    it.to
 }
 

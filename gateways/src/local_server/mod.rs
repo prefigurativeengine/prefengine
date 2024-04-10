@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 use axum::{response::Html, routing::get, Router};
 use std::collections::HashMap;
 use log;
@@ -23,7 +16,7 @@ pub async fn start() {
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await
-        //.with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(shutdown_signal())
         .unwrap();
 
     log::info!("local_server listening on {}", listener.local_addr().unwrap());
