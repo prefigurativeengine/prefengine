@@ -1,17 +1,50 @@
+use std::{error::Error, path::PathBuf};
+
 use kuska_handshake;
 use sodiumoxide::crypto::{sign::ed25519};
+use dirs_next;
+
+fn get_home_dir() -> Result<String, String>
+{
+    #[cfg(target_os = "windows")]
+    let slash = "\\";
+
+    #[cfg(not(target_os = "windows"))]
+    let slash = "/";
+
+    let home_dir: PathBuf = dirs_next::home_dir().expect("User home directory should be writeable");
+    return home_dir;
+}
+
+fn get_ind_ssb_path() -> String
+{
+    return get_home_dir().push(".ssb");
+}
+
+fn write_path_if_not_exist(path: &str) -> bool
+{
+    let exists: bool = Path::new(path).exists();
+    if (exists) {
+        return true;
+    } else {
+        std::fs::create_dir(path)
+            .expect("Should have been able to write the path");
+        return false;
+    }
+}
 
 fn write_to_ssbsecret(key_pair: u32) -> std::io::Result<()>
 {
     use std::fs;
-    let ssbsecret_path: String = get_ind_ssbsecret_path();
+    let mut ssb_path: PathBuf = get_ind_ssb_path();
     // if not there, create path and write file
     // if there, ask user if original or new one to be created, and inform of risk
     let exists: bool = write_path_if_not_exist(&ssbsecret_path);
     
     if (!exists)
     {
-        std::fs::write(ssbsecret_path, &key_pair.to_string())
+        ssb_path.push("secret");
+        std::fs::write(ssb_path, &key_pair.to_string())
             .expect("Should have been able to read the file");
         return Ok(());
     }
