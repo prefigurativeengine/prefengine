@@ -2,6 +2,8 @@ use std::{error::Error, path::PathBuf};
 use std::path::Path;
 
 use kuska_handshake;
+use kuska_handshake::sodiumoxide::crypto::box_::{PublicKey, SecretKey};
+use kuska_ssb::keystore;
 use sodiumoxide::crypto::{sign::ed25519};
 use dirs_next;
 
@@ -61,5 +63,8 @@ fn write_to_ssbsecret(key_pair: u32) -> std::io::Result<()>
 
 pub fn first_time_id_gen()
 {
-    let (pk, sk) = ed25519::gen_keypair();
+    let kp_struct: OwnedIdentity = kuska_ssb::keystore::OwnedIdentity::create();
+
+    // Write and Unpin trait for writer
+    kuska_ssb::keystore::write_patchwork_config(kp_struct, writer)
 }
