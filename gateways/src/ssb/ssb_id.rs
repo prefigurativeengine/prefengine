@@ -1,4 +1,5 @@
 use std::{error::Error, path::PathBuf};
+use std::path::Path;
 
 use kuska_handshake;
 use sodiumoxide::crypto::{sign::ed25519};
@@ -13,12 +14,15 @@ fn get_home_dir() -> Result<String, String>
     let slash = "/";
 
     let home_dir: PathBuf = dirs_next::home_dir().expect("User home directory should be writeable");
-    return home_dir;
+    return Ok(home_dir);
 }
 
-fn get_ind_ssb_path() -> String
+fn get_ind_ssb_path() -> PathBuf
 {
-    return get_home_dir().push(".ssb");
+    if let Some(home_dir) = get_home_dir() {
+        return home_dir.push(".ssb");
+    }
+
 }
 
 fn write_path_if_not_exist(path: &str) -> bool
@@ -39,7 +43,7 @@ fn write_to_ssbsecret(key_pair: u32) -> std::io::Result<()>
     let mut ssb_path: PathBuf = get_ind_ssb_path();
     // if not there, create path and write file
     // if there, ask user if original or new one to be created, and inform of risk
-    let exists: bool = write_path_if_not_exist(&ssbsecret_path);
+    let exists: bool = write_path_if_not_exist(&ssb_path);
     
     if (!exists)
     {
