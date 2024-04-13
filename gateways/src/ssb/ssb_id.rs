@@ -5,11 +5,11 @@ use std::path::Path;
 
 use kuska_handshake;
 use kuska_handshake::sodiumoxide::crypto::box_::{PublicKey, SecretKey};
-use kuska_ssb::keystore;
+use kuska_ssb::keystore::{self, OwnedIdentity};
 use sodiumoxide::crypto::{sign::ed25519};
 use dirs_next;
 
-fn get_home_dir() -> Result<String, String>
+fn get_home_dir() -> Result<PathBuf, String>
 {
     #[cfg(target_os = "windows")]
     let slash = "\\";
@@ -21,24 +21,31 @@ fn get_home_dir() -> Result<String, String>
     return Ok(home_dir);
 }
 
-fn get_ssb_home_path() -> PathBuf
+fn get_ssb_home_path() -> Result<PathBuf, ()>
 {
-    if let Some(home_dir) = get_home_dir() {
-        return home_dir.push(".ssb");
+    if let Ok(mut home_dir) = get_home_dir() {
+        home_dir.push(".ssb");
+        return Ok(home_dir);
     }
-
+    return Err(())
 }
 
 
-pub fn first_time_id_gen()
+pub fn first_time_id_gen() -> Result<(), String>
 {
     let kp_struct: OwnedIdentity = kuska_ssb::keystore::OwnedIdentity::create();
 
-    let ssb_secret_p: PathBuf = get_ssb_home_path();
+    let result = get_ssb_home_path();
+    if result == Err(()) {
+        return Err("Failed to read home directory.".to_owned());
+    }
+
+    let mut ssb_secret_p: PathBuf = result.unwrap();
     ssb_secret_p.push("secret");
 
     let ssb_secret_f = File::create(ssb_secret_p).expect("Unable to create ssb secret file");
-    let ssb_secret_w: BufWriter<File> = BufWriter::new(ssb_secret_f);
+    let mut ssb_secret_w: BufWriter<File> = BufWriter::new(ssb_secret_f);
 
-    kuska_ssb::keystore::write_patchwork_config(&kp_struct, ssb_secret_w);
+    kuska_ssb::keystore::write_patchwork_config(&kp_struct, &mut ssb_secret_w);
+    return Ok(())
 }
