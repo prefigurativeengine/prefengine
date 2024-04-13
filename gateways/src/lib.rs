@@ -11,6 +11,8 @@ mod local_server;
 // private mod
 mod ssb;
 
+use std::fs::File;
+
 // use externs
 use log;
 
@@ -19,12 +21,5 @@ pub trait Server {
 }
 
 pub fn main(s: Box<dyn Server>) {
-    cat_log::init_styled_logger();
-    log::info!("Initialized log");
-
-
-    use ssb::ssb_id::first_time_id_gen;
-    first_time_id_gen();
-
     s.run();
 }
