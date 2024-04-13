@@ -712,9 +712,12 @@ dependencies = [
 name = "gateways"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "axum",
  "dirs-next",
+ "futures",
  "kuska-handshake",
+ "kuska-sodiumoxide",
  "kuska-ssb",
  "log",
  "rand",
@@ -936,6 +939,7 @@ dependencies = [
  "kuska-sodiumoxide",
  "log",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -1589,6 +1593,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61285f6515fa018fb2d1e46eb21223fff441ee8db5d0f1435e8ab4f5cdb80931"
 dependencies = [
  "backtrace",
+ "bytes",
  "libc",
  "mio",
  "num_cpus",

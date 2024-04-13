@@ -19,7 +19,10 @@ tokio = { version = "1.36", features = ["macros", "rt-multi-thread"]}
 
 # ssb server
 kuska-ssb = "0.4"
-kuska-handshake = "0.2"
+kuska-sodiumoxide = "0.2.5-0"
+kuska-handshake = { version = "0.2", features = ["tokio_compat"]}
+futures = { version = "0.3", default-features = false }
+async-std = "1.12"
 rand = "0.8"
 sodiumoxide = "0.2"
 
