@@ -1,3 +1,5 @@
+// copy of TokioCompat from kuska_ssb except has a public T
+
 use tokio::net::{
     tcp::{ReadHalf, WriteHalf},
     TcpStream,

@@ -9,6 +9,7 @@ use kuska_ssb::keystore::{self, OwnedIdentity};
 use sodiumoxide::crypto::{sign::ed25519};
 use dirs_next;
 
+// TODO: make error enum for this
 fn get_home_dir() -> Result<PathBuf, String>
 {
     #[cfg(target_os = "windows")]
