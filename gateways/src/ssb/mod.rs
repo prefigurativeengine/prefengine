@@ -34,12 +34,38 @@ static _TCP_ENDPOINTS: HashMap<&str, &str> = HashMap::from([
 
 struct SSBTcpClient 
 {
-    _streams: TokioTcpStream
+    _streams: Vec<TokioTcpStream>
 }
 
 impl SSBTcpClient
 {
-    fn new() -> SSBTcpClient {  }
+    fn new(peers: &Vec<SSBPeer>) -> SSBTcpClient 
+    {
+        let streams: Vec<TokioTcpStream> = Vec::new();
+        for p in peers {
+            // TODO: maybe make a macro for annotating iterator variables
+            let _: &SSBPeer = p;
+            
+            let stream_res = TokioTcpStream::connect(p.addr).await;
+            if stream_res.is_err() {
+                return Err("Failed to create TcpStream.".to_owned());
+            }
+            streams.push(stream_res.unwrap());
+        }
+
+        return SSBTcpClient { _streams: streams }
+    }
+
+    // TODO: make error enum for this
+    fn add_conn(&mut self, peer: &SSBPeer) -> Result<(), String> 
+    { 
+        let stream_res = TokioTcpStream::connect(peer.addr).await;
+        if stream_res.is_err() {
+            return Err("Failed to create TcpStream.".to_owned());
+        }
+        self._streams.push(stream_res.unwrap());
+        return Ok(());
+    }
 }
 
 // list of peers will be used later when requests need to go to specific peers
@@ -64,7 +90,7 @@ impl SSBTcpServer
         let public_addr: String = "0.0.0.0".to_owned() + port;
 
         let result: Result<TokioTcpListener, kuska_async_std::Error> = TokioTcpListener::bind(public_addr).await;
-
+        // load peers from disk
     }
 
     // TODO: make error enum for this
@@ -95,6 +121,8 @@ impl SSBTcpServer
 
         return handshake_res;
     }
+
+    fn add_peer();
 }
 
 
