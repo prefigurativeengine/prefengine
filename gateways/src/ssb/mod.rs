@@ -11,9 +11,7 @@ use kuska_handshake::{async_std as kuska_async_std, HandshakeComplete};
 use async_std;
 
 // handshake_client
-use tokio::{self, 
-    net::TcpListener as TokioTcpListener, 
-    net::TcpStream as TokioTcpStream
+use tokio::{self, io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener as TokioTcpListener, TcpStream as TokioTcpStream}
 }; // 1.37.0
 
 use tokio_compat_fix::TokioCompatFix;
@@ -44,15 +42,14 @@ impl SSBTcpClient
         let streams: Vec<TokioTcpStream> = Vec::new();
         for p in peers {
             // TODO: maybe make a macro for annotating iterator variables
-            let _: &SSBPeer = p;
-            
+
             let stream_res = TokioTcpStream::connect(p.addr).await;
             if stream_res.is_err() {
                 return Err("Failed to create TcpStream.".to_owned());
             }
             streams.push(stream_res.unwrap());
         }
-
+        
         return SSBTcpClient { _streams: streams }
     }
 
@@ -63,6 +60,7 @@ impl SSBTcpClient
         if stream_res.is_err() {
             return Err("Failed to create TcpStream.".to_owned());
         }
+
         self._streams.push(stream_res.unwrap());
         return Ok(());
     }
@@ -90,6 +88,8 @@ impl SSBTcpServer
         let public_addr: String = "0.0.0.0".to_owned() + port;
 
         let result: Result<TokioTcpListener, kuska_async_std::Error> = TokioTcpListener::bind(public_addr).await;
+
+        
         // load peers from disk
     }
 
@@ -134,3 +134,9 @@ enum SSBDiscoveryMethod
     BluetoothBroadcast
 }
 
+fn send_udp(data: &[u8]) 
+{
+    
+    
+
+}
