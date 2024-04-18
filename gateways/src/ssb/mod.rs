@@ -10,8 +10,9 @@ use kuska_handshake::{async_std as kuska_async_std, HandshakeComplete};
 
 use async_std;
 
+use log::kv::Error;
 // handshake_client
-use tokio::{self, io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener as TokioTcpListener, TcpStream as TokioTcpStream}
+use tokio::{self, io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener as TokioTcpListener, TcpStream as TokioTcpStream, UdpSocket as TokioUdpSocket}
 }; // 1.37.0
 
 use tokio_compat_fix::TokioCompatFix;
@@ -30,6 +31,7 @@ static _TCP_ENDPOINTS: HashMap<&str, &str> = HashMap::from([
     ("root", "/"),
 ]);
 
+// TODO: make unified table structure to see multiple info about each peer instead of just a vector
 struct SSBTcpClient 
 {
     _streams: Vec<TokioTcpStream>
@@ -45,9 +47,10 @@ impl SSBTcpClient
 
             let stream_res = TokioTcpStream::connect(p.addr).await;
             if stream_res.is_err() {
-                return Err("Failed to create TcpStream.".to_owned());
+                // see TODO above SSBTcpClient def
+            } else {
+                streams.push(stream_res.unwrap());
             }
-            streams.push(stream_res.unwrap());
         }
         
         return SSBTcpClient { _streams: streams }
@@ -72,6 +75,9 @@ struct SSBPeer
     addr: String
 }
 
+
+fn get_peers_from_disk() -> Option<Vec<SSBPeer>> { return Some(vec![SSBPeer { addr:"dsad".to_owned() }]) }
+
 struct SSBTcpServer 
 {
     _listener: TokioTcpListener,
@@ -87,10 +93,25 @@ impl SSBTcpServer
         let port: &str = ":3501";
         let public_addr: String = "0.0.0.0".to_owned() + port;
 
-        let result: Result<TokioTcpListener, kuska_async_std::Error> = TokioTcpListener::bind(public_addr).await;
+        let tcp_result: Result<TokioTcpListener, kuska_async_std::Error> = TokioTcpListener::bind(public_addr).await;
+        if tcp_result.is_err() {
+            return Err("Failed to bind TcpListener.".to_owned());
+        }
 
-        
-        // load peers from disk
+        let peer_result: Option<Vec<SSBPeer>> = get_peers_from_disk();
+        let peers = vec![];
+        if let Some(some_peers) = peer_result {
+            peers = some_peers;
+        } 
+
+        let client_result = SSBTcpClient::new(&peers);
+
+        self.handshake_peers();
+        return SSBTcpServer {
+            _listener: tcp_result.unwrap(),
+            _client: client_result,
+            _peers: peers
+        }
     }
 
     // TODO: make error enum for this
@@ -134,9 +155,22 @@ enum SSBDiscoveryMethod
     BluetoothBroadcast
 }
 
-fn send_udp(data: &[u8]) 
+use std::net::SocketAddr;
+async fn send_udp(data: &[u8], dest_addr: SocketAddr) -> Result<(), Error>
 {
-    
-    
+    let addr: &str = "0.0.0.0:3502";
+    let socket: TokioUdpSocket = TokioUdpSocket::bind(addr).await?;
 
+    socket.send_to(data, &dest_addr).await?;
+    return Ok(());
+}
+
+async fn recv_udp() -> Result<(Vec<u8>, SocketAddr), Error>
+{
+    let addr: &str = "0.0.0.0:3502";
+    let socket: TokioUdpSocket = TokioUdpSocket::bind(addr).await?;
+
+    let mut buf = vec![0u8; 32];
+    let res_tuple = socket.recv_from(&mut buf).await?;
+    return Ok((buf, res_tuple.1));
 }
