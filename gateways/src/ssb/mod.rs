@@ -72,11 +72,12 @@ impl SSBTcpClient
 // list of peers will be used later when requests need to go to specific peers
 struct SSBPeer 
 {
-    addr: String
+    addr: String,
+    is_handshaked: bool
 }
 
 
-fn get_peers_from_disk() -> Option<Vec<SSBPeer>> { return Some(vec![SSBPeer { addr:"dsad".to_owned() }]) }
+fn get_peers_from_disk() -> Option<Vec<SSBPeer>> { }
 
 struct SSBTcpServer 
 {
@@ -106,11 +107,25 @@ impl SSBTcpServer
 
         let client_result = SSBTcpClient::new(&peers);
 
-        self.handshake_peers();
+        SSBTcpServer::handshake_peers(&mut peers);
         return SSBTcpServer {
             _listener: tcp_result.unwrap(),
             _client: client_result,
             _peers: peers
+        }
+    }
+
+    fn handshake_peers(peers: &mut Vec<SSBPeer>)
+    {
+        for (ind, p) in peers.iter().enumerate() {
+            if !(peers[ind].is_handshaked) {
+                let hs_result: Result<HandshakeComplete, String> = SSBTcpServer::initiate_handshake(/*args*/);
+                if hs_result.is_err() {
+                    // see TODO above SSBTcpClient def
+                } else {
+                    peers[ind].is_handshaked = true;
+                }
+            }
         }
     }
 
