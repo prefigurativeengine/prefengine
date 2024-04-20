@@ -31,10 +31,10 @@ static _TCP_ENDPOINTS: HashMap<&str, &str> = HashMap::from([
     ("root", "/"),
 ]);
 
-// TODO: make unified table structure to see multiple info about each peer instead of just a vector
+
 struct SSBTcpClient 
 {
-    _streams: Vec<TokioTcpStream>
+    _peers: Vec<SSBPeer>
 }
 
 impl SSBTcpClient
@@ -47,13 +47,13 @@ impl SSBTcpClient
 
             let stream_res = TokioTcpStream::connect(p.addr).await;
             if stream_res.is_err() {
-                // see TODO above SSBTcpClient def
+                // TODO: add error info to peer struct
             } else {
-                streams.push(stream_res.unwrap());
+                p.stream = stream_res.unwrap();
             }
         }
         
-        return SSBTcpClient { _streams: streams }
+        return SSBTcpClient { _peers: streams }
     }
 
     // TODO: make error enum for this
@@ -69,10 +69,22 @@ impl SSBTcpClient
     }
 }
 
-// list of peers will be used later when requests need to go to specific peers
+
+
+
+// use option for stream or create seperate struct for uninitialized peers?
+// its (net conn) something that would need to constantly be checked
 struct SSBPeer 
 {
+    metadata: SSBPeerInfo,
+    stream: Option<TokioTcpStream>,
+}
+
+struct SSBPeerInfo
+{
+    id: u32,
     addr: String,
+    public_key: PublicKey,
     is_handshaked: bool
 }
 
