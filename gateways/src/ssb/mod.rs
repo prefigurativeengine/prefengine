@@ -17,15 +17,6 @@ use tokio::{self, io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener as TokioT
 
 use tokio_compat_fix::TokioCompatFix;
 
-// struct HandshakeHandler 
-// {
-// }
-
-// impl HandshakeHandler 
-// {
-    
-// }
-
 
 static _TCP_ENDPOINTS: HashMap<&str, &str> = HashMap::from([
     ("root", "/"),
@@ -39,47 +30,105 @@ struct SSBTcpClient
 
 impl SSBTcpClient
 {
-    fn new(peers: &Vec<SSBPeer>) -> SSBTcpClient 
+    fn new(peer_infos: &Vec<SSBPeerInfo>) -> SSBTcpClient 
     {
-        let streams: Vec<TokioTcpStream> = Vec::new();
-        for p in peers {
+        let peers: Vec<SSBPeer> = Vec::new();
+        for p in peer_infos {
             // TODO: maybe make a macro for annotating iterator variables
 
             let stream_res = TokioTcpStream::connect(p.addr).await;
             if stream_res.is_err() {
                 // TODO: add error info to peer struct
             } else {
-                p.stream = stream_res.unwrap();
+                let new_peer = SSBPeer { 
+                    metadata: p.clone(), 
+                    stream: stream_res.unwrap() 
+                };
+                peers.push(new_peer);
             }
         }
         
-        return SSBTcpClient { _peers: streams }
+        return SSBTcpClient { _peers: peers }
+    }
+
+    pub fn get_peers(&self) -> &Vec<SSBPeer>
+    {
+        return &self._peers;
     }
 
     // TODO: make error enum for this
-    fn add_conn(&mut self, peer: &SSBPeer) -> Result<(), String> 
+    fn add_conn(&mut self, peer_info: &SSBPeerInfo) -> Result<(), String> 
     { 
-        let stream_res = TokioTcpStream::connect(peer.addr).await;
+        let stream_res = TokioTcpStream::connect(peer_info.addr).await;
         if stream_res.is_err() {
             return Err("Failed to create TcpStream.".to_owned());
         }
 
-        self._streams.push(stream_res.unwrap());
+        let new_peer = SSBPeer {
+            metadata: peer_info.clone(), 
+            stream: stream_res.unwrap()
+        };
+        self._peers.push(new_peer);
         return Ok(());
+    }
+
+    
+    // TODO: make error enum for this
+    fn initiate_handshake(
+        &mut self,
+        peer_ind: usize,
+        use_ssb_net: bool
+    ) -> Result<HandshakeComplete, String> 
+    {
+        use auth::Key;
+
+        let net_id: Key;
+        if (use_ssb_net) {
+            net_id = Key(ssb_id::SSB_NET_ID);
+        }
+        else {
+            net_id = Key(ssb_id::GATE_NET_ID);
+        }
+        
+        let id_res: Result<OwnedIdentity, String> = ssb_id::get_ssb_id();
+        if id_res.is_err() {
+            return Err("Failed to get ssb id.".to_owned());
+        }
+        let client_id = id_res.unwrap();
+
+        let stream = &mut self._peers[peer_ind].stream;
+        let async_std_adapter: TokioCompatFix<&mut TokioTcpStream> = TokioCompatFix { 
+            0: stream
+        };
+
+        let server_pk: PublicKey = self._peers[peer_ind].metadata.public_key.clone();
+
+        // returns custom Result type from kuska_ssb, either HandshakeComplete or kuska_ssb err
+        let handshake_res = kuska_async_std::handshake_client(
+            &mut async_std_adapter, 
+            net_id, 
+            client_id.pk, 
+            client_id.sk, 
+            server_pk
+        ).await;
+
+        if handshake_res.is_err() {
+            return Err("Failed to perform handshake.".to_owned());
+        }
+
+        return Ok(handshake_res.unwrap());
     }
 }
 
 
-
-
-// use option for stream or create seperate struct for uninitialized peers?
-// its (net conn) something that would need to constantly be checked
+// make SSBPeer methods for accessing stream
 struct SSBPeer 
 {
-    metadata: SSBPeerInfo,
-    stream: Option<TokioTcpStream>,
+    pub metadata: SSBPeerInfo,
+    stream: TokioTcpStream,
 }
 
+#[derive(Clone)]
 struct SSBPeerInfo
 {
     id: u32,
@@ -89,14 +138,15 @@ struct SSBPeerInfo
 }
 
 
-fn get_peers_from_disk() -> Option<Vec<SSBPeer>> { }
+fn get_peers_from_disk() -> Option<Vec<SSBPeer>> 
+{ 
+
+}
 
 struct SSBTcpServer 
 {
     _listener: TokioTcpListener,
-    //_handshaker: HandshakeHandler,
     _client: SSBTcpClient,
-    _peers: Vec<SSBPeer>
 }
 
 impl SSBTcpServer 
@@ -111,66 +161,41 @@ impl SSBTcpServer
             return Err("Failed to bind TcpListener.".to_owned());
         }
 
-        let peer_result: Option<Vec<SSBPeer>> = get_peers_from_disk();
+        let peer_result: Option<Vec<SSBPeerInfo>> = get_peers_from_disk();
         let peers = vec![];
         if let Some(some_peers) = peer_result {
             peers = some_peers;
-        } 
+        }
 
         let client_result = SSBTcpClient::new(&peers);
 
-        SSBTcpServer::handshake_peers(&mut peers);
+        SSBTcpServer::handshake_peers(&mut client_result);
         return SSBTcpServer {
             _listener: tcp_result.unwrap(),
             _client: client_result,
-            _peers: peers
         }
     }
 
-    fn handshake_peers(peers: &mut Vec<SSBPeer>)
+    fn handshake_peers(client: &mut SSBTcpClient)
     {
-        for (ind, p) in peers.iter().enumerate() {
-            if !(peers[ind].is_handshaked) {
-                let hs_result: Result<HandshakeComplete, String> = SSBTcpServer::initiate_handshake(/*args*/);
+        let peers: &Vec<SSBPeer> = client.get_peers();
+        let p_enumerate = peers.iter().enumerate();
+
+        for (ind, p) in p_enumerate {
+            if !(p.metadata.is_handshaked) {
+                let hs_result: Result<HandshakeComplete, String> = client.initiate_handshake(
+                    ind, 
+                    false
+                );
+
                 if hs_result.is_err() {
                     // see TODO above SSBTcpClient def
                 } else {
-                    peers[ind].is_handshaked = true;
+                    p.metadata.is_handshaked = true;
                 }
             }
         }
     }
-
-    // TODO: make error enum for this
-    fn initiate_handshake(
-        stream: &mut TokioTcpStream,
-        net_id: auth::Key,
-        id: OwnedIdentity,
-        server_pk: ed25519::PublicKey,
-    ) -> Result<HandshakeComplete, String> 
-    {
-        let async_std_adapter: TokioCompatFix<&mut TokioTcpStream> = TokioCompatFix { 0: stream };
-
-        let client_sk: SecretKey = id.sk;
-        let client_pk: PublicKey = id.pk;
-
-        // returns custom Result type from kuska_ssb
-        let handshake_res = kuska_async_std::handshake_client(
-            &mut async_std_adapter, 
-            net_id, 
-            client_pk, 
-            client_sk, 
-            server_pk
-        ).await;
-
-        if handshake_res.is_err() {
-            return Err("Failed to perform handshake.".to_owned());
-        }
-
-        return handshake_res;
-    }
-
-    fn add_peer();
 }
 
 

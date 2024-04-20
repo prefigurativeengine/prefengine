@@ -75,7 +75,7 @@ pub fn first_time_id_gen() -> Result<(), String>
 
 
 
-pub const GATE_NET_ID: [usize; 32] = [
+pub const GATE_NET_ID: [u8; 32] = [
     0x53,
     0x4d,
     0x61,
@@ -110,7 +110,7 @@ pub const GATE_NET_ID: [usize; 32] = [
     0x2f
 ];
 
-pub const SSB_NET_ID: [usize; 32] = [
+pub const SSB_NET_ID: [u8; 32] = [
     0xd4,
     0xa1,
     0xcb,
