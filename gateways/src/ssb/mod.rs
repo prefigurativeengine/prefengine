@@ -30,13 +30,13 @@ struct SSBTcpClient
 
 impl SSBTcpClient
 {
-    fn new(peer_infos: &Vec<SSBPeerInfo>) -> SSBTcpClient 
+    async fn new(peer_infos: &Vec<SSBPeerInfo>) -> SSBTcpClient 
     {
-        let peers: Vec<SSBPeer> = Vec::new();
+        let mut peers: Vec<SSBPeer> = Vec::new();
         for p in peer_infos {
             // TODO: maybe make a macro for annotating iterator variables
 
-            let stream_res = TokioTcpStream::connect(p.addr).await;
+            let stream_res = TokioTcpStream::connect(p.addr.clone()).await;
             if stream_res.is_err() {
                 // TODO: add error info to peer struct
             } else {
@@ -56,10 +56,20 @@ impl SSBTcpClient
         return &self._peers;
     }
 
+    pub fn get_mut_peers(&self) -> &mut Vec<SSBPeer>
+    {
+        return &mut self._peers;
+    }
+
+    pub fn get_mut_peer(&self, peer_ind: usize) -> &mut SSBPeer
+    {
+        return &mut self._peers[peer_ind];
+    }
+
     // TODO: make error enum for this
-    fn add_conn(&mut self, peer_info: &SSBPeerInfo) -> Result<(), String> 
+    async fn add_conn(&mut self, peer_info: &SSBPeerInfo) -> Result<(), String> 
     { 
-        let stream_res = TokioTcpStream::connect(peer_info.addr).await;
+        let stream_res = TokioTcpStream::connect(peer_info.addr.clone()).await;
         if stream_res.is_err() {
             return Err("Failed to create TcpStream.".to_owned());
         }
@@ -74,7 +84,7 @@ impl SSBTcpClient
 
     
     // TODO: make error enum for this
-    fn initiate_handshake(
+    async fn initiate_handshake(
         &mut self,
         peer_ind: usize,
         use_ssb_net: bool
@@ -96,12 +106,13 @@ impl SSBTcpClient
         }
         let client_id = id_res.unwrap();
 
+        let self_pk = &mut self._peers[peer_ind].metadata.public_key;
+        let server_pk: PublicKey = self_pk.clone();
+
         let stream = &mut self._peers[peer_ind].stream;
-        let async_std_adapter: TokioCompatFix<&mut TokioTcpStream> = TokioCompatFix { 
+        let mut async_std_adapter: TokioCompatFix<&mut TokioTcpStream> = TokioCompatFix { 
             0: stream
         };
-
-        let server_pk: PublicKey = self._peers[peer_ind].metadata.public_key.clone();
 
         // returns custom Result type from kuska_ssb, either HandshakeComplete or kuska_ssb err
         let handshake_res = kuska_async_std::handshake_client(
@@ -151,12 +162,12 @@ struct SSBTcpServer
 
 impl SSBTcpServer 
 {
-    pub fn new() -> SSBTcpServer
+    pub async fn new() -> Result<SSBTcpServer, String>
     {
         let port: &str = ":3501";
         let public_addr: String = "0.0.0.0".to_owned() + port;
 
-        let tcp_result: Result<TokioTcpListener, kuska_async_std::Error> = TokioTcpListener::bind(public_addr).await;
+        let tcp_result = TokioTcpListener::bind(public_addr).await;
         if tcp_result.is_err() {
             return Err("Failed to bind TcpListener.".to_owned());
         }
@@ -167,16 +178,18 @@ impl SSBTcpServer
             peers = some_peers;
         }
 
-        let client_result = SSBTcpClient::new(&peers);
+        let client_result = SSBTcpClient::new(&peers).await;
 
         SSBTcpServer::handshake_peers(&mut client_result);
-        return SSBTcpServer {
+        return Ok(
+            SSBTcpServer {
             _listener: tcp_result.unwrap(),
             _client: client_result,
-        }
+            }
+        )
     }
 
-    fn handshake_peers(client: &mut SSBTcpClient)
+    async fn handshake_peers(client: &mut SSBTcpClient)
     {
         let peers: &Vec<SSBPeer> = client.get_peers();
         let p_enumerate = peers.iter().enumerate();
@@ -186,12 +199,13 @@ impl SSBTcpServer
                 let hs_result: Result<HandshakeComplete, String> = client.initiate_handshake(
                     ind, 
                     false
-                );
+                ).await;
 
                 if hs_result.is_err() {
                     // see TODO above SSBTcpClient def
                 } else {
-                    p.metadata.is_handshaked = true;
+                    let mut_p = client.get_mut_peer(ind);
+                    mut_p.metadata.is_handshaked = true;
                 }
             }
         }
@@ -223,6 +237,6 @@ async fn recv_udp() -> Result<(Vec<u8>, SocketAddr), Error>
     let socket: TokioUdpSocket = TokioUdpSocket::bind(addr).await?;
 
     let mut buf = vec![0u8; 32];
-    let res_tuple = socket.recv_from(&mut buf).await?;
+    let res_tuple: (usize, SocketAddr) = socket.recv_from(&mut buf).await?;
     return Ok((buf, res_tuple.1));
 }
