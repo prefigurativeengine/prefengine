@@ -25,62 +25,46 @@ static _TCP_ENDPOINTS: HashMap<&str, &str> = HashMap::from([
 
 struct SSBTcpClient 
 {
-    _peers: Vec<SSBPeer>
 }
 
 impl SSBTcpClient
 {
-    async fn new(peer_infos: &Vec<SSBPeerInfo>) -> SSBTcpClient 
-    {
-        let mut peers: Vec<SSBPeer> = Vec::new();
-        for p in peer_infos {
-            // TODO: maybe make a macro for annotating iterator variables
+    // async fn new(peer_infos: &Vec<SSBPeerInfo>) -> SSBTcpClient 
+    // {
+    //     // let mut peers: Vec<SSBPeer> = Vec::new();
+    //     // for p in peer_infos {
+    //     //     // TODO: maybe make a macro for annotating iterator variables
 
-            let stream_res = TokioTcpStream::connect(p.addr.clone()).await;
-            if stream_res.is_err() {
-                // TODO: add error info to peer struct
-            } else {
-                let new_peer = SSBPeer { 
-                    metadata: p.clone(), 
-                    stream: stream_res.unwrap() 
-                };
-                peers.push(new_peer);
-            }
-        }
+    //     //     let stream_res = TokioTcpStream::connect(p.addr.clone()).await;
+    //     //     if stream_res.is_err() {
+    //     //         // TODO: add error info to peer struct
+    //     //     } else {
+    //     //         let new_peer = SSBPeer { 
+    //     //             metadata: p.clone(), 
+    //     //             stream: stream_res.unwrap() 
+    //     //         };
+    //     //         peers.push(new_peer);
+    //     //     }
+    //     // }
         
-        return SSBTcpClient { _peers: peers }
-    }
-
-    pub fn get_peers(&self) -> &Vec<SSBPeer>
-    {
-        return &self._peers;
-    }
-
-    pub fn get_mut_peers(&self) -> &mut Vec<SSBPeer>
-    {
-        return &mut self._peers;
-    }
-
-    pub fn get_mut_peer(&self, peer_ind: usize) -> &mut SSBPeer
-    {
-        return &mut self._peers[peer_ind];
-    }
+    //     // return SSBTcpClient { _peers: peers }
+    // }
 
     // TODO: make error enum for this
-    async fn add_conn(&mut self, peer_info: &SSBPeerInfo) -> Result<(), String> 
-    { 
-        let stream_res = TokioTcpStream::connect(peer_info.addr.clone()).await;
-        if stream_res.is_err() {
-            return Err("Failed to create TcpStream.".to_owned());
-        }
+    // async fn add_conn(&mut self, peer_info: &SSBPeerInfo) -> Result<(), String> 
+    // { 
+    //     let stream_res = TokioTcpStream::connect(peer_info.addr.clone()).await;
+    //     if stream_res.is_err() {
+    //         return Err("Failed to create TcpStream.".to_owned());
+    //     }
 
-        let new_peer = SSBPeer {
-            metadata: peer_info.clone(), 
-            stream: stream_res.unwrap()
-        };
-        self._peers.push(new_peer);
-        return Ok(());
-    }
+    //     let new_peer = SSBPeer {
+    //         metadata: peer_info.clone(), 
+    //         stream: stream_res.unwrap()
+    //     };
+    //     self._peers.push(new_peer);
+    //     return Ok(());
+    // }
 
     
     // TODO: make error enum for this
@@ -157,7 +141,8 @@ fn get_peers_from_disk() -> Option<Vec<SSBPeer>>
 struct SSBTcpServer 
 {
     _listener: TokioTcpListener,
-    _client: SSBTcpClient,
+    //_client: SSBTcpClient,
+    _peers: Vec<SSBPeer>
 }
 
 impl SSBTcpServer 
@@ -173,30 +158,28 @@ impl SSBTcpServer
         }
 
         let peer_result: Option<Vec<SSBPeerInfo>> = get_peers_from_disk();
-        let peers = vec![];
+        let peers_info = vec![];
         if let Some(some_peers) = peer_result {
-            peers = some_peers;
+            peers_info = some_peers;
         }
 
-        let client_result = SSBTcpClient::new(&peers).await;
+        let peers: Vec<SSBPeer> = SSBTcpServer::connect_peers(peers_info).await;
 
-        SSBTcpServer::handshake_peers(&mut client_result);
+
+        SSBTcpServer::handshake_peers(&mut peers);
         return Ok(
             SSBTcpServer {
             _listener: tcp_result.unwrap(),
-            _client: client_result,
+            _peers: peers
             }
         )
     }
 
-    async fn handshake_peers(client: &mut SSBTcpClient)
+    async fn handshake_peers(peers: &mut Vec<SSBPeer>)
     {
-        let peers: &Vec<SSBPeer> = client.get_peers();
-        let p_enumerate = peers.iter().enumerate();
-
-        for (ind, p) in p_enumerate {
+        for p in peers {
             if !(p.metadata.is_handshaked) {
-                let hs_result: Result<HandshakeComplete, String> = client.initiate_handshake(
+                let hs_result: Result<HandshakeComplete, String> = SSBTcpClient::initiate_handshake(
                     ind, 
                     false
                 ).await;
@@ -204,11 +187,32 @@ impl SSBTcpServer
                 if hs_result.is_err() {
                     // see TODO above SSBTcpClient def
                 } else {
-                    let mut_p = client.get_mut_peer(ind);
-                    mut_p.metadata.is_handshaked = true;
+                    // let mut_p = client.get_mut_peer(ind);
+                    // mut_p.metadata.is_handshaked = true;
+                    p.metadata.is_handshaked = true;
                 }
             }
         }
+    }
+
+    async fn connect_peers(peer_infos: Vec<SSBPeerInfo>) -> Vec<SSBPeer>
+    {
+        let mut peer_streams = vec![];
+        for p in peer_infos {
+            // TODO: maybe make a macro for annotating iterator variables
+
+            let stream_res = TokioTcpStream::connect(p.addr.clone()).await;
+            if stream_res.is_err() {
+                // TODO: add error info to peer struct
+            } else {
+                let new_peer = SSBPeer { 
+                    metadata: p.clone(), 
+                    stream: stream_res.unwrap() 
+                };
+                peer_streams.push(new_peer);
+            }
+        }
+        return peer_streams;
     }
 }
 
