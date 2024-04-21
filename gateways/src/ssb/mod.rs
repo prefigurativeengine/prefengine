@@ -69,8 +69,7 @@ impl SSBTcpClient
     
     // TODO: make error enum for this
     async fn initiate_handshake(
-        &mut self,
-        peer_ind: usize,
+        peer: &mut SSBPeer,
         use_ssb_net: bool
     ) -> Result<HandshakeComplete, String> 
     {
@@ -90,12 +89,11 @@ impl SSBTcpClient
         }
         let client_id = id_res.unwrap();
 
-        let self_pk = &mut self._peers[peer_ind].metadata.public_key;
+        let self_pk = peer.metadata.public_key;
         let server_pk: PublicKey = self_pk.clone();
 
-        let stream = &mut self._peers[peer_ind].stream;
         let mut async_std_adapter: TokioCompatFix<&mut TokioTcpStream> = TokioCompatFix { 
-            0: stream
+            0: &mut peer.stream
         };
 
         // returns custom Result type from kuska_ssb, either HandshakeComplete or kuska_ssb err
@@ -129,7 +127,7 @@ struct SSBPeerInfo
     id: u32,
     addr: String,
     public_key: PublicKey,
-    is_handshaked: bool
+    hs_info: Option<HandshakeCompleteFix>
 }
 
 
@@ -178,9 +176,9 @@ impl SSBTcpServer
     async fn handshake_peers(peers: &mut Vec<SSBPeer>)
     {
         for p in peers {
-            if !(p.metadata.is_handshaked) {
+            if (p.metadata.hs_info.is_none()) {
                 let hs_result: Result<HandshakeComplete, String> = SSBTcpClient::initiate_handshake(
-                    ind, 
+                    p, 
                     false
                 ).await;
 
@@ -189,7 +187,10 @@ impl SSBTcpServer
                 } else {
                     // let mut_p = client.get_mut_peer(ind);
                     // mut_p.metadata.is_handshaked = true;
-                    p.metadata.is_handshaked = true;
+                    let hs: HandshakeCompleteFix = HandshakeCompleteFix::clone_org_to_fix(
+                        hs_result.unwrap()
+                    );
+                    p.metadata.hs_info = Some(hs);
                 }
             }
         }
@@ -226,6 +227,8 @@ enum SSBDiscoveryMethod
 }
 
 use std::net::SocketAddr;
+
+use self::tokio_compat_fix::HandshakeCompleteFix;
 async fn send_udp(data: &[u8], dest_addr: SocketAddr) -> Result<(), Error>
 {
     let addr: &str = "0.0.0.0:3502";

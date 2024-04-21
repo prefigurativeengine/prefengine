@@ -1,4 +1,6 @@
-// copy of TokioCompat from kuska_ssb except has a public T
+// copy of code from kuska_ssb with following fixes:
+// 1. TokioCompat has a public T
+// 2. HandshakeComplete derives copy trait
 
 use tokio::net::{
     tcp::{ReadHalf, WriteHalf},
@@ -12,6 +14,36 @@ use futures::{
     task::{Context, Poll},
 };
 use std::pin::Pin;
+
+use kuska_handshake::{HandshakeComplete, SharedSecret};
+use kuska_sodiumoxide::crypto::{auth, scalarmult::curve25519};
+use kuska_sodiumoxide::crypto::sign::ed25519;
+
+#[derive(Clone)]
+pub struct HandshakeCompleteFix 
+{
+    pub net_id: auth::Key,
+    pub pk: ed25519::PublicKey,
+    pub ephemeral_pk: curve25519::GroupElement,
+    pub peer_pk: ed25519::PublicKey,
+    pub peer_ephemeral_pk: curve25519::GroupElement,
+    pub shared_secret: SharedSecret,
+}
+
+impl HandshakeCompleteFix 
+{
+    pub fn clone_org_to_fix(original: HandshakeComplete) -> HandshakeCompleteFix
+    {
+        return HandshakeCompleteFix {
+            net_id: original.net_id,
+            pk: original.pk,
+            ephemeral_pk: original.ephemeral_pk,
+            peer_pk: original.peer_pk,
+            peer_ephemeral_pk: original.peer_ephemeral_pk,
+            shared_secret: original.shared_secret,
+        }
+    }
+}
 
 pub struct TokioCompatFix<T>(pub T);
 
