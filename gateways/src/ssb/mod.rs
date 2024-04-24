@@ -3,16 +3,14 @@ mod tokio_compat_fix;
 
 use std::collections::HashMap;
 
-use kuska_ssb::{crypto::ed25519::{PublicKey, SecretKey}, keystore::OwnedIdentity};
-use kuska_sodiumoxide::crypto::{auth, sign::ed25519};
+use kuska_ssb::{crypto::ed25519::{PublicKey}, keystore::OwnedIdentity};
+use kuska_sodiumoxide::crypto::{auth};
 
 use kuska_handshake::{async_std as kuska_async_std, HandshakeComplete};
 
-use async_std;
-
 use log::kv::Error;
 // handshake_client
-use tokio::{self, io::{AsyncReadExt, AsyncWriteExt}, net::{TcpListener as TokioTcpListener, TcpStream as TokioTcpStream, UdpSocket as TokioUdpSocket}
+use tokio::{self, net::{TcpListener as TokioTcpListener, TcpStream as TokioTcpStream, UdpSocket as TokioUdpSocket}
 }; // 1.37.0
 
 use tokio_compat_fix::TokioCompatFix;
@@ -29,44 +27,6 @@ struct SSBTcpClient
 
 impl SSBTcpClient
 {
-    // async fn new(peer_infos: &Vec<SSBPeerInfo>) -> SSBTcpClient 
-    // {
-    //     // let mut peers: Vec<SSBPeer> = Vec::new();
-    //     // for p in peer_infos {
-    //     //     // TODO: maybe make a macro for annotating iterator variables
-
-    //     //     let stream_res = TokioTcpStream::connect(p.addr.clone()).await;
-    //     //     if stream_res.is_err() {
-    //     //         // TODO: add error info to peer struct
-    //     //     } else {
-    //     //         let new_peer = SSBPeer { 
-    //     //             metadata: p.clone(), 
-    //     //             stream: stream_res.unwrap() 
-    //     //         };
-    //     //         peers.push(new_peer);
-    //     //     }
-    //     // }
-        
-    //     // return SSBTcpClient { _peers: peers }
-    // }
-
-    // TODO: make error enum for this
-    // async fn add_conn(&mut self, peer_info: &SSBPeerInfo) -> Result<(), String> 
-    // { 
-    //     let stream_res = TokioTcpStream::connect(peer_info.addr.clone()).await;
-    //     if stream_res.is_err() {
-    //         return Err("Failed to create TcpStream.".to_owned());
-    //     }
-
-    //     let new_peer = SSBPeer {
-    //         metadata: peer_info.clone(), 
-    //         stream: stream_res.unwrap()
-    //     };
-    //     self._peers.push(new_peer);
-    //     return Ok(());
-    // }
-
-    
     // TODO: make error enum for this
     async fn initiate_handshake(
         peer: &mut SSBPeer,
@@ -185,8 +145,6 @@ impl SSBTcpServer
                 if hs_result.is_err() {
                     // see TODO above SSBTcpClient def
                 } else {
-                    // let mut_p = client.get_mut_peer(ind);
-                    // mut_p.metadata.is_handshaked = true;
                     let hs: HandshakeCompleteFix = HandshakeCompleteFix::clone_org_to_fix(
                         hs_result.unwrap()
                     );
