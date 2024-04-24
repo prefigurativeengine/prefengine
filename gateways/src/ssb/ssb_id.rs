@@ -8,7 +8,7 @@ use kuska_handshake::sodiumoxide::crypto::box_::{PublicKey, SecretKey};
 use kuska_ssb::keystore::{self, OwnedIdentity};
 use sodiumoxide::crypto::{sign::ed25519};
 use dirs_next;
-use tokio::io::BufReader;
+
 
 
 // TODO: make error enum for this
@@ -35,7 +35,7 @@ fn get_ssb_secret_path() -> Result<PathBuf, ()>
     return Err(())
 }
 
-pub fn get_ssb_id() -> Result<OwnedIdentity, String>
+pub async fn get_ssb_id() -> Result<OwnedIdentity, String>
 {
     let result = get_ssb_secret_path();
     if result == Err(()) {
@@ -44,18 +44,29 @@ pub fn get_ssb_id() -> Result<OwnedIdentity, String>
 
     let mut ssb_secret_p: PathBuf = result.unwrap();
 
-    let ssb_secret_f = File::create(ssb_secret_p).expect("Unable to create ssb secret file");
+    use tokio::fs::File;
+    let ssb_secret_f = File::create(ssb_secret_p)
+        .await
+        .expect("Unable to create ssb secret file");
 
     use tokio::io::BufReader;
     let mut ssb_reader: BufReader<File> = BufReader::new(ssb_secret_f);
 
-    let id: OwnedIdentity = kuska_ssb::keystore::read_patchwork_config(&mut ssb_reader).await;
+    use crate::ssb::TokioCompatFix;
+    let mut async_std_adapter: TokioCompatFix<&mut BufReader<File>> = TokioCompatFix { 
+        0: &mut ssb_reader
+    };
 
-    return Ok(id);
+    let id_result = kuska_ssb::keystore::read_patchwork_config(&mut async_std_adapter).await;
+    if id_result.is_err() {
+        return Err("Failed to read ssbsecret directory.".to_owned());
+    }
+
+    return Ok(id_result.unwrap());
 }
 
 
-pub fn first_time_id_gen() -> Result<(), String>
+pub async fn first_time_id_gen() -> Result<(), String>
 {
     let kp_struct: OwnedIdentity = kuska_ssb::keystore::OwnedIdentity::create();
 
@@ -66,11 +77,21 @@ pub fn first_time_id_gen() -> Result<(), String>
 
     let mut ssb_secret_p: PathBuf = result.unwrap();
 
-    let ssb_secret_f = File::create(ssb_secret_p).expect("Unable to create ssb secret file");
+    use tokio::fs::File;
+    let ssb_secret_f = File::create(ssb_secret_p)
+        .await
+        .expect("Unable to create ssb secret file");
+
+    use tokio::io::BufWriter;
     let mut ssb_secret_w: BufWriter<File> = BufWriter::new(ssb_secret_f);
 
-    kuska_ssb::keystore::write_patchwork_config(&kp_struct, &mut ssb_secret_w);
-    return Ok(())
+    use crate::ssb::TokioCompatFix;
+    let mut async_std_adapter: TokioCompatFix<&mut BufWriter<File>> = TokioCompatFix { 
+        0: &mut ssb_secret_w
+    };
+
+    kuska_ssb::keystore::write_patchwork_config(&kp_struct, &mut async_std_adapter);
+    return Ok(());
 }
 
 
