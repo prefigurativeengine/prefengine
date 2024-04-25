@@ -45,7 +45,7 @@ pub async fn get_ssb_id() -> Result<OwnedIdentity, String>
     let mut ssb_secret_p: PathBuf = result.unwrap();
 
     use tokio::fs::File;
-    let ssb_secret_f = File::create(ssb_secret_p)
+    let ssb_secret_f = File::open(ssb_secret_p)
         .await
         .expect("Unable to create ssb secret file");
 

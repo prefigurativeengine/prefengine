@@ -91,9 +91,18 @@ struct SSBPeerInfo
 }
 
 
-fn get_peers_from_disk() -> Option<Vec<SSBPeer>> 
+fn get_peers_from_disk() -> Option<Vec<SSBPeerInfo>> 
 { 
+    let disk_peers = vec![];
+    let sp = SSBPeerInfo {
+        id: 0,
+        addr: "192.132.123.233:3501".to_owned(),
+        public_key: PublicKey(()),
+        hs_info: None
+    };
+    disk_peers.push(sp);
 
+    return Some(disk_peers);
 }
 
 pub struct SSBTcpServer 
