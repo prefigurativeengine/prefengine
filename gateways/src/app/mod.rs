@@ -3,12 +3,15 @@ use crate::ssb::SSBTcpServer;
 use crate::cat_log;
 use crate::ssb::ssb_id;
 
-pub struct Engine {
+pub struct Engine 
+{
     ssb_server: SSBTcpServer
 }
 
-impl Engine {
-    pub async fn new() -> Engine {
+impl Engine 
+{
+    pub async fn new() -> Engine 
+    {
         let ssb_tcp_result = SSBTcpServer::new().await;
         if ssb_tcp_result.is_err() {
             panic!("Failed to init SSBTcpServer.");
@@ -21,10 +24,12 @@ impl Engine {
         };
     }
 
-    pub fn run(&self) {
+    pub fn run(&self) 
+    {
         cat_log::init_styled_logger();
         log::info!("Initialized log");
 
+        let first_start = Engine::is_first_time();
         if (first_start) {
             ssb_id::first_time_id_gen();
         }
@@ -36,6 +41,11 @@ impl Engine {
         // circle conn
 
         crate::local_server::start();
+    }
+
+    fn is_first_time() -> bool 
+    {
+        return true;
     }
 
     
