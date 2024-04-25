@@ -1,4 +1,4 @@
-mod ssb_id;
+pub mod ssb_id;
 mod tokio_compat_fix;
 
 use std::collections::HashMap;
@@ -43,7 +43,7 @@ impl SSBTcpClient
             net_id = Key(ssb_id::GATE_NET_ID);
         }
         
-        let id_res: Result<OwnedIdentity, String> = ssb_id::get_ssb_id();
+        let id_res: Result<OwnedIdentity, String> = ssb_id::get_ssb_id().await;
         if id_res.is_err() {
             return Err("Failed to get ssb id.".to_owned());
         }
@@ -96,7 +96,7 @@ fn get_peers_from_disk() -> Option<Vec<SSBPeer>>
 
 }
 
-struct SSBTcpServer 
+pub struct SSBTcpServer 
 {
     _listener: TokioTcpListener,
     //_client: SSBTcpClient,

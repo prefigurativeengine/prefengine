@@ -1,6 +1,7 @@
 use crate::local_server;
 use crate::ssb::SSBTcpServer;
-
+use crate::cat_log;
+use crate::ssb::ssb_id;
 
 pub struct Engine {
     ssb_server: SSBTcpServer
@@ -25,7 +26,7 @@ impl Engine {
         log::info!("Initialized log");
 
         if (first_start) {
-            ssb::ssb_id::first_time_id_gen();
+            ssb_id::first_time_id_gen();
         }
 
         // auth
