@@ -125,12 +125,12 @@ impl SSBTcpServer
         }
 
         let peer_result: Option<Vec<SSBPeerInfo>> = get_peers_from_disk();
-        let peers_info = vec![];
+        let mut peers_info = vec![];
         if let Some(some_peers) = peer_result {
             peers_info = some_peers;
         }
 
-        let peers: Vec<SSBPeer> = SSBTcpServer::connect_peers(peers_info).await;
+        let mut peers: Vec<SSBPeer> = SSBTcpServer::connect_peers(peers_info).await;
 
 
         SSBTcpServer::handshake_peers(&mut peers);

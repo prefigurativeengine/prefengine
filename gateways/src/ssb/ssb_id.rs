@@ -47,7 +47,7 @@ pub async fn get_ssb_id() -> Result<OwnedIdentity, String>
     use tokio::fs::File;
     let ssb_secret_f = File::open(ssb_secret_p)
         .await
-        .expect("Unable to create ssb secret file");
+        .expect("Unable to open ssb secret file");
 
     use tokio::io::BufReader;
     let mut ssb_reader: BufReader<File> = BufReader::new(ssb_secret_f);
