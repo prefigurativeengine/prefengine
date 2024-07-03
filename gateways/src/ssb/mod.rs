@@ -16,9 +16,9 @@ use tokio::{self, net::{TcpListener as TokioTcpListener, TcpStream as TokioTcpSt
 use tokio_compat_fix::TokioCompatFix;
 
 
-static _TCP_ENDPOINTS: HashMap<&str, &str> = HashMap::from([
-    ("root", "/"),
-]);
+// static _TCP_ENDPOINTS: HashMap<&str, &str> = HashMap::from([
+//     ("root", "/"),
+// ]);
 
 
 struct SSBTcpClient 
@@ -91,18 +91,20 @@ struct SSBPeerInfo
 }
 
 
-fn get_peers_from_disk() -> Option<Vec<SSBPeerInfo>> 
+fn get_peers_from_disk() //-> Option<Vec<SSBPeerInfo>> 
 { 
+    /* 
     let disk_peers = vec![];
     let sp = SSBPeerInfo {
         id: 0,
         addr: "192.132.123.233:3501".to_owned(),
-        public_key: PublicKey(()),
+        public_key: PublicKey((ssb_id::SSB_NET_ID)),
         hs_info: None
     };
     disk_peers.push(sp);
 
     return Some(disk_peers);
+    */
 }
 
 pub struct SSBTcpServer 
@@ -124,11 +126,11 @@ impl SSBTcpServer
             return Err("Failed to bind TcpListener.".to_owned());
         }
 
-        let peer_result: Option<Vec<SSBPeerInfo>> = get_peers_from_disk();
+        //let peer_result: Option<Vec<SSBPeerInfo>> = get_peers_from_disk();
         let mut peers_info = vec![];
-        if let Some(some_peers) = peer_result {
-            peers_info = some_peers;
-        }
+        // if let Some(some_peers) = peer_result {
+        //     peers_info = some_peers;
+        // }
 
         let mut peers: Vec<SSBPeer> = SSBTcpServer::connect_peers(peers_info).await;
 
@@ -182,15 +184,6 @@ impl SSBTcpServer
         }
         return peer_streams;
     }
-}
-
-
-enum SSBDiscoveryMethod
-{
-    // only invitecode will be implemented for now
-    LANBroadcast,
-    InviteCode,
-    BluetoothBroadcast
 }
 
 use std::net::SocketAddr;
