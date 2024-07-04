@@ -2,7 +2,6 @@ use axum::{response::Html, routing::get, Router};
 use std::collections::HashMap;
 use log;
 
-#[tokio::main]
 pub async fn start() {
     let route: HashMap<&str, &str> = HashMap::from([
         ("root", "/"),

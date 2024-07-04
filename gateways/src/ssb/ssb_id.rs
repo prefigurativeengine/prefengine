@@ -15,12 +15,6 @@ use dirs_next;
 // TODO: move this to generic file src dir
 fn get_home_dir() -> Result<PathBuf, String>
 {
-    #[cfg(target_os = "windows")]
-    let slash = "\\";
-
-    #[cfg(not(target_os = "windows"))]
-    let slash = "/";
-
     let home_dir: PathBuf = dirs_next::home_dir().expect("User home directory should be readable");
     return Ok(home_dir);
 }
@@ -66,16 +60,12 @@ pub async fn get_ssb_id() -> Result<OwnedIdentity, String>
 }
 
 
-pub async fn first_time_id_gen() -> Result<(), String>
+pub async fn first_time_id_gen()
 {
     let kp_struct: OwnedIdentity = kuska_ssb::keystore::OwnedIdentity::create();
 
-    let result = get_ssb_secret_path();
-    if result == Err(()) {
-        return Err("Failed to read ssbsecret directory.".to_owned());
-    }
-
-    let mut ssb_secret_p: PathBuf = result.unwrap();
+    let ssb_secret_p = get_ssb_secret_path()
+        .expect("Unable to read home path");
 
     use tokio::fs::File;
     let ssb_secret_f = File::create(ssb_secret_p)
@@ -90,8 +80,9 @@ pub async fn first_time_id_gen() -> Result<(), String>
         0: &mut ssb_secret_w
     };
 
-    kuska_ssb::keystore::write_patchwork_config(&kp_struct, &mut async_std_adapter);
-    return Ok(());
+    kuska_ssb::keystore::write_patchwork_config(&kp_struct, &mut async_std_adapter)
+        .await
+        .expect("Unable to write to ssb secret file");
 }
 
 

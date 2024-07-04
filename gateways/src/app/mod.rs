@@ -27,11 +27,11 @@ impl Engine
         };
     }
 
-    pub fn run(&self) 
+    pub async fn run(&self) 
     {
         let first_start = Engine::is_first_time();
         if (first_start) {
-            ssb_id::first_time_id_gen();
+            ssb_id::first_time_id_gen().await;
         }
 
         // auth
