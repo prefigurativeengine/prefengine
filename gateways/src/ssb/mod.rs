@@ -14,7 +14,7 @@ use tokio::{self, net::{TcpListener as TokioTcpListener, TcpStream as TokioTcpSt
 }; // 1.37.0
 
 use tokio_compat_fix::TokioCompatFix;
-
+use std::fs;
 
 // static _TCP_ENDPOINTS: HashMap<&str, &str> = HashMap::from([
 //     ("root", "/"),
@@ -81,7 +81,9 @@ struct SSBPeer
     stream: TokioTcpStream,
 }
 
-#[derive(Clone)]
+
+use serde::{Serialize, Deserialize};
+#[derive(Clone, Serialize, Deserialize)]
 struct SSBPeerInfo
 {
     id: u32,
@@ -91,20 +93,54 @@ struct SSBPeerInfo
 }
 
 
-fn get_peers_from_disk() //-> Option<Vec<SSBPeerInfo>> 
-{ 
-    /* 
-    let disk_peers = vec![];
-    let sp = SSBPeerInfo {
-        id: 0,
-        addr: "192.132.123.233:3501".to_owned(),
-        public_key: PublicKey((ssb_id::SSB_NET_ID)),
-        hs_info: None
-    };
-    disk_peers.push(sp);
+fn get_peers_from_disk() -> Option<Vec<SSBPeerInfo>> 
+{
+    use serde_json;
+    use std::env;
+    use std::path::Path;
 
-    return Some(disk_peers);
-    */
+    let mut json_path = env::current_dir()
+            .expect("Unable to read current working directory");
+
+    json_path.push("peers.json");
+
+    if (Path::new(&json_path).exists()) {
+        let peers_str = fs::read_to_string(json_path)
+                .expect("Unable to read from peers file");
+
+        if (peers_str.is_empty()) {
+            return None;
+        }
+
+        let json_array: serde_json::Value =
+            serde_json::from_str(&peers_str).expect("peers JSON was not well-formatted");
+        
+        let disk_peers = vec![];
+
+        // vm - 192.132.123.233:3501
+        for value in json_array.as_array()
+        .expect("Array expected in peers") 
+        {
+            let obj = value.as_object().expect("Object expected in peer array") ;
+
+            let sp = SSBPeerInfo {
+                id: obj.get("id"),
+                addr: obj.get("addr"),
+                public_key: PublicKey((ssb_id::SSB_NET_ID)),
+                hs_info: None
+            };
+
+            disk_peers.push(sp);
+        }
+        
+
+        return Some(disk_peers);
+    }
+
+    else {
+        fs::File::create(json_path).expect("Unable to create json peers file");
+        return None;
+    }
 }
 
 pub struct SSBTcpServer 

@@ -49,6 +49,7 @@ impl Engine
 
     fn is_first_time() -> bool 
     {
+        // TODO: make this a global constant
         let mut path = env::current_dir()
             .expect("Unable to read current working directory");
         path.push("DO_NOT_DELETE_OR_MOVE");
