@@ -3,6 +3,10 @@ use crate::ssb::SSBTcpServer;
 use crate::cat_log;
 use crate::ssb::ssb_id;
 
+use std::env;
+use std::path::Path;
+use std::fs;
+
 pub struct Engine 
 {
     ssb_server: SSBTcpServer
@@ -45,7 +49,17 @@ impl Engine
 
     fn is_first_time() -> bool 
     {
-        return true;
+        let mut path = env::current_dir()
+            .expect("Unable to read current working directory");
+        path.push("DO_NOT_DELETE_OR_MOVE");
+
+        // TODO: for windows, maybe replace with registry value lookup
+        if (Path::new(&path).exists()) {
+            return false
+        } else {
+            fs::File::create(path).expect("Unable to write 'first start file' to current working directory");
+            return true;
+        }
     }
 
     
