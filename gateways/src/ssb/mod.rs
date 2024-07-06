@@ -15,6 +15,9 @@ use tokio::{self, net::{TcpListener as TokioTcpListener, TcpStream as TokioTcpSt
 
 use tokio_compat_fix::TokioCompatFix;
 use std::fs;
+use std::path::Path;
+use serde_json;
+use std::env;
 
 // static _TCP_ENDPOINTS: HashMap<&str, &str> = HashMap::from([
 //     ("root", "/"),
@@ -92,40 +95,61 @@ struct SSBPeerInfo
     hs_info: Option<HandshakeCompleteFix>
 }
 
-
-fn get_peers_from_disk() -> Option<Vec<SSBPeerInfo>> 
+fn get_peer_file_path() -> path::PathBuf
 {
-    use serde_json;
-    use std::env;
-    use std::path::Path;
-
     let mut json_path = env::current_dir()
             .expect("Unable to read current working directory");
 
     json_path.push("peers.json");
+    return json_path;
+}
+
+fn get_peer_file_str() -> String
+{
+    let json_path = get_peer_file_path();
+
+    return fs::read_to_string(json_path)
+        .expect("Unable to read from peers file");
+}
+
+
+fn add_peer_to_disk(peer: SSBPeerInfo)
+{
+    let peers_str = get_peer_file_str();
+
+    let mut json_array: Vec<SSBPeerInfo> =
+        serde_json::from_str(&peers_str).expect("peers JSON was not well-formatted");
+
+    json_array.push(peer);
+
+    let serialized = serde_json::to_string(&json_array).unwrap();
+
+    fs::write(get_peer_file_path(), serialized).expect("Unable to write to peers file");
+}
+
+
+fn get_peers_from_disk() -> Option<Vec<SSBPeerInfo>> 
+{
+    let mut json_path = get_peer_file_path();
 
     if (Path::new(&json_path).exists()) {
-        let peers_str = fs::read_to_string(json_path)
-                .expect("Unable to read from peers file");
+        let peers_str = get_peer_file_str();
 
         if (peers_str.is_empty()) {
             return None;
         }
 
-        let json_array: serde_json::Value =
+        let json_array: Vec<SSBPeerInfo> =
             serde_json::from_str(&peers_str).expect("peers JSON was not well-formatted");
         
         let disk_peers = vec![];
 
         // vm - 192.132.123.233:3501
-        for value in json_array.as_array()
-        .expect("Array expected in peers") 
+        for value in json_array
         {
-            let obj = value.as_object().expect("Object expected in peer array") ;
-
             let sp = SSBPeerInfo {
-                id: obj.get("id"),
-                addr: obj.get("addr"),
+                id: value.id,
+                addr: value.addr,
                 public_key: PublicKey((ssb_id::SSB_NET_ID)),
                 hs_info: None
             };
@@ -178,6 +202,14 @@ impl SSBTcpServer
             _peers: peers
             }
         )
+    }
+
+    fn add_peer(&mut self, info: SSBPeerInfo, stream: TokioTcpStream)
+    {
+        let stream_peer = SSBPeer { metadata: info, stream: stream };
+        self._peers.push(stream_peer);
+
+        add_peer_to_disk(info)
     }
 
     async fn handshake_peers(peers: &mut Vec<SSBPeer>)
