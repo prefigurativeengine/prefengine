@@ -15,7 +15,7 @@ use tokio::{self, net::{TcpListener as TokioTcpListener, TcpStream as TokioTcpSt
 
 use tokio_compat_fix::TokioCompatFix;
 use std::fs;
-use std::path::Path;
+use std::path;
 use serde_json;
 use std::env;
 
@@ -82,6 +82,7 @@ struct SSBPeer
 {
     pub metadata: SSBPeerInfo,
     stream: TokioTcpStream,
+    hs_info: Option<HandshakeCompleteFix>
 }
 
 
@@ -92,8 +93,8 @@ struct SSBPeerInfo
     id: u32,
     addr: String,
     public_key: PublicKey,
-    hs_info: Option<HandshakeCompleteFix>
 }
+
 
 fn get_peer_file_path() -> path::PathBuf
 {
@@ -113,14 +114,14 @@ fn get_peer_file_str() -> String
 }
 
 
-fn add_peer_to_disk(peer: SSBPeerInfo)
+fn add_peer_to_disk(peer: &SSBPeerInfo)
 {
     let peers_str = get_peer_file_str();
 
     let mut json_array: Vec<SSBPeerInfo> =
         serde_json::from_str(&peers_str).expect("peers JSON was not well-formatted");
 
-    json_array.push(peer);
+    json_array.push(peer.clone());
 
     let serialized = serde_json::to_string(&json_array).unwrap();
 
@@ -132,7 +133,7 @@ fn get_peers_from_disk() -> Option<Vec<SSBPeerInfo>>
 {
     let mut json_path = get_peer_file_path();
 
-    if (Path::new(&json_path).exists()) {
+    if (path::Path::new(&json_path).exists()) {
         let peers_str = get_peer_file_str();
 
         if (peers_str.is_empty()) {
@@ -142,7 +143,7 @@ fn get_peers_from_disk() -> Option<Vec<SSBPeerInfo>>
         let json_array: Vec<SSBPeerInfo> =
             serde_json::from_str(&peers_str).expect("peers JSON was not well-formatted");
         
-        let disk_peers = vec![];
+        let mut disk_peers = vec![];
 
         // vm - 192.132.123.233:3501
         for value in json_array
@@ -151,7 +152,6 @@ fn get_peers_from_disk() -> Option<Vec<SSBPeerInfo>>
                 id: value.id,
                 addr: value.addr,
                 public_key: PublicKey((ssb_id::SSB_NET_ID)),
-                hs_info: None
             };
 
             disk_peers.push(sp);
@@ -204,18 +204,18 @@ impl SSBTcpServer
         )
     }
 
-    fn add_peer(&mut self, info: SSBPeerInfo, stream: TokioTcpStream)
+    fn add_peer(&mut self, info: SSBPeerInfo, stream: TokioTcpStream, hs_info: HandshakeCompleteFix)
     {
-        let stream_peer = SSBPeer { metadata: info, stream: stream };
+        add_peer_to_disk(&info);
+        
+        let stream_peer = SSBPeer { metadata: info, stream: stream, hs_info: Some(hs_info) };
         self._peers.push(stream_peer);
-
-        add_peer_to_disk(info)
     }
 
     async fn handshake_peers(peers: &mut Vec<SSBPeer>)
     {
         for p in peers {
-            if (p.metadata.hs_info.is_none()) {
+            if (p.hs_info.is_none()) {
                 let hs_result: Result<HandshakeComplete, String> = SSBTcpClient::initiate_handshake(
                     p, 
                     false
@@ -227,7 +227,7 @@ impl SSBTcpServer
                     let hs: HandshakeCompleteFix = HandshakeCompleteFix::clone_org_to_fix(
                         hs_result.unwrap()
                     );
-                    p.metadata.hs_info = Some(hs);
+                    p.hs_info = Some(hs);
                 }
             }
         }
@@ -245,7 +245,8 @@ impl SSBTcpServer
             } else {
                 let new_peer = SSBPeer { 
                     metadata: p.clone(), 
-                    stream: stream_res.unwrap() 
+                    stream: stream_res.unwrap(),
+                    hs_info: None
                 };
                 peer_streams.push(new_peer);
             }
