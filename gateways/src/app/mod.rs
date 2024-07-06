@@ -1,4 +1,4 @@
-use crate::local_server;
+use crate::{local_server, ssb};
 use crate::ssb::SSBTcpServer;
 use crate::cat_log;
 use crate::ssb::ssb_id;
@@ -21,7 +21,7 @@ impl Engine
         
         let ssb_tcp_result = SSBTcpServer::new().await;
         if ssb_tcp_result.is_err() {
-            panic!("Failed to init SSBTcpServer.");
+            panic!("{}", ssb_tcp_result.err().unwrap());
         }
 
         let ssb_tcp = ssb_tcp_result.unwrap();
