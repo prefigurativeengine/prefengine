@@ -131,7 +131,7 @@ fn add_peer_to_disk(peer: &SSBPeerInfo)
 
 fn get_peers_from_disk() -> Option<Vec<SSBPeerInfo>> 
 {
-    let mut json_path = get_peer_file_path();
+    let json_path = get_peer_file_path();
 
     if (path::Path::new(&json_path).exists()) {
         let peers_str = get_peer_file_str();
@@ -186,20 +186,21 @@ impl SSBTcpServer
             return Err("Failed to bind TcpListener.".to_owned());
         }
 
-        //let peer_result: Option<Vec<SSBPeerInfo>> = get_peers_from_disk();
+        let peer_result: Option<Vec<SSBPeerInfo>> = get_peers_from_disk();
         let mut peers_info = vec![];
-        // if let Some(some_peers) = peer_result {
-        //     peers_info = some_peers;
-        // }
+
+        if let Some(some_peers) = peer_result {
+            peers_info = some_peers;
+        }
 
         let mut peers: Vec<SSBPeer> = SSBTcpServer::connect_peers(peers_info).await;
 
+        SSBTcpServer::handshake_peers(&mut peers).await;
 
-        SSBTcpServer::handshake_peers(&mut peers);
         return Ok(
             SSBTcpServer {
-            _listener: tcp_result.unwrap(),
-            _peers: peers
+                _listener: tcp_result.unwrap(),
+                _peers: peers
             }
         )
     }
@@ -207,7 +208,7 @@ impl SSBTcpServer
     fn add_peer(&mut self, info: SSBPeerInfo, stream: TokioTcpStream, hs_info: HandshakeCompleteFix)
     {
         add_peer_to_disk(&info);
-        
+
         let stream_peer = SSBPeer { metadata: info, stream: stream, hs_info: Some(hs_info) };
         self._peers.push(stream_peer);
     }
