@@ -17,8 +17,8 @@ impl Sandbox {
 }
 
 impl Server for Sandbox  {
-    fn run(&self) {
-        self.eng.run();
+    async fn run(&self) {
+        self.eng.run().await;
     }
 }
 
