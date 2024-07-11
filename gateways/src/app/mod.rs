@@ -44,7 +44,7 @@ impl Engine
 
         // circle conn
 
-        crate::local_server::start();
+        crate::local_server::start().await;
     }
 
     fn is_first_time() -> bool 

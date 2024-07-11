@@ -25,5 +25,5 @@ impl Server for Sandbox  {
 #[tokio::main]
 async fn main() {
     let s: Box<Sandbox> = Box::new(Sandbox::new().await);
-    gateways::main(s);
+    gateways::main(s).await;
 }
