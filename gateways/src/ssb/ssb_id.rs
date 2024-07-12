@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::io::BufWriter;
 use std::{error::Error, path::PathBuf};
 use std::path::Path;
@@ -23,7 +22,6 @@ fn get_ssb_secret_path() -> Result<PathBuf, ()>
 {
     if let Ok(mut home_dir) = get_home_dir() {
         home_dir.push(".ssb");
-        home_dir.push("secret");
         return Ok(home_dir);
     }
     return Err(())
@@ -64,10 +62,16 @@ pub async fn first_time_id_gen()
 {
     let kp_struct: OwnedIdentity = kuska_ssb::keystore::OwnedIdentity::create();
 
-    let ssb_secret_p = get_ssb_secret_path()
+    let mut ssb_secret_p = get_ssb_secret_path()
         .expect("Unable to read home path");
 
+    use tokio::fs;
     use tokio::fs::File;
+
+    fs::create_dir(&ssb_secret_p).await
+        .expect("Unable to create ssb secret path");
+    ssb_secret_p.push("secret");
+
     let ssb_secret_f = File::create(ssb_secret_p)
         .await
         .expect("Unable to create ssb secret file");

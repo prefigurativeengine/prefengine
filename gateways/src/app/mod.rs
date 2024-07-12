@@ -54,7 +54,7 @@ impl Engine
             .expect("Unable to read current working directory");
         path.push("DO_NOT_DELETE_OR_MOVE");
 
-        // TODO: for windows, maybe replace with registry value lookup
+        // TODO: for windows, maybe replace with registry value lookup, or json value in config file
         if (Path::new(&path).exists()) {
             return false
         } else {
@@ -63,7 +63,7 @@ impl Engine
         }
     }
 
-    
+     
 }
 
 
