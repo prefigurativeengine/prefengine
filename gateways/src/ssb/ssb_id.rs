@@ -1,13 +1,22 @@
-use std::io::BufWriter;
 use std::{error::Error, path::PathBuf};
 use std::path::Path;
 
 use kuska_handshake;
-use kuska_handshake::sodiumoxide::crypto::box_::{PublicKey, SecretKey};
+//use kuska_handshake::sodiumoxide::crypto::box_::{PublicKey, SecretKey};
 use kuska_ssb::keystore::{self, OwnedIdentity};
-use sodiumoxide::crypto::{sign::ed25519};
 use dirs_next;
 
+use tokio::io::{self, BufWriter, AsyncWriteExt};
+use tokio::fs::File;
+
+use kuska_ssb::keystore::{
+    JsonSSBSecret, CURVE_ED25519,
+};
+use serde_json::to_vec_pretty;
+
+use kuska_ssb::crypto::ToSsbId;
+
+use crate::ssb::TokioCompatFix;
 
 
 // TODO: make error enum for this
@@ -36,15 +45,12 @@ pub async fn get_ssb_id() -> Result<OwnedIdentity, String>
 
     let mut ssb_secret_p: PathBuf = result.unwrap();
 
-    use tokio::fs::File;
     let ssb_secret_f = File::open(ssb_secret_p)
         .await
         .expect("Unable to open ssb secret file");
 
-    use tokio::io::BufReader;
     let mut ssb_reader: BufReader<File> = BufReader::new(ssb_secret_f);
 
-    use crate::ssb::TokioCompatFix;
     let mut async_std_adapter: TokioCompatFix<&mut BufReader<File>> = TokioCompatFix { 
         0: &mut ssb_reader
     };
@@ -66,7 +72,6 @@ pub async fn first_time_id_gen()
         .expect("Unable to read home path");
 
     use tokio::fs;
-    use tokio::fs::File;
 
     fs::create_dir(&ssb_secret_p).await
         .expect("Unable to create ssb secret path");
@@ -76,19 +81,35 @@ pub async fn first_time_id_gen()
         .await
         .expect("Unable to create ssb secret file");
 
-    use tokio::io::BufWriter;
     let mut ssb_secret_w: BufWriter<File> = BufWriter::new(ssb_secret_f);
 
-    use crate::ssb::TokioCompatFix;
-    let mut async_std_adapter: TokioCompatFix<&mut BufWriter<File>> = TokioCompatFix { 
-        0: &mut ssb_secret_w
-    };
+    // use crate::ssb::TokioCompatFix;
+    // let mut async_std_adapter: TokioCompatFix<&mut BufWriter<File>> = TokioCompatFix { 
+    //     0: &mut ssb_secret_w
+    // };
 
-    kuska_ssb::keystore::write_patchwork_config(&kp_struct, &mut async_std_adapter)
+    write_patchwork_config_fixed(&kp_struct, &mut ssb_secret_w)
         .await
-        .expect("Unable to write to ssb secret file");
 }
 
+
+pub async fn write_patchwork_config_fixed(id: &OwnedIdentity, writer: &mut BufWriter<File>) 
+{
+    let json = JsonSSBSecret {
+        id: id.id.clone(),
+        curve: CURVE_ED25519.to_owned(),
+        public: id.pk.to_ssb_id(),
+        private: id.sk.to_ssb_id(),
+    };
+    let encoded = to_vec_pretty(&json)
+        .expect("Unable to serialize json");
+
+    writer.write(&encoded).await
+        .expect("Unable to write to ssb secret file");
+
+    writer.flush().await
+        .expect("Unable to write to ssb secret file");
+}
 
 
 pub const GATE_NET_ID: [u8; 32] = [
