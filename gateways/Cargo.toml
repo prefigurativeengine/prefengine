@@ -17,15 +17,6 @@ time = "0.3"
 axum = "0.7"
 tokio = { version = "1.36", features = ["macros", "rt-multi-thread", "fs"]}
 
-# ssb server
-kuska-ssb = "0.4"
-kuska-sodiumoxide = "0.2.5-0"
-kuska-handshake = { version = "0.2", features = ["tokio_compat"]}
-futures = { version = "0.3", default-features = false }
-async-std = "1.12"
-rand = "0.8"
-sodiumoxide = "0.2"
-
 # file io
 dirs-next = "2.0" 
 serde = { version = "1.0.203", features = ["derive"] }
