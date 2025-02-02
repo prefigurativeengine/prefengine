@@ -15,3 +15,5 @@ sandbox/Cargo.lock
 settings.json
 
 build/
+
+.vscode/
