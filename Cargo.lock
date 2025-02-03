@@ -211,20 +211,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gateways"
-version = "0.1.0"
-dependencies = [
- "axum",
- "dirs-next",
- "log",
- "serde",
- "serde_json",
- "simple_logger",
- "time",
- "tokio",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -485,6 +471,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
+name = "pref"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "dirs-next",
+ "log",
+ "serde",
+ "serde_json",
+ "simple_logger",
+ "time",
+ "tokio",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.79"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -535,7 +535,7 @@ checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
 name = "sandbox"
 version = "0.1.0"
 dependencies = [
- "gateways",
+ "pref",
  "tokio",
 ]
 

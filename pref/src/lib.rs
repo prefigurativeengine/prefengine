@@ -3,7 +3,7 @@ compile_error!("Windows only");
 
 // export for sandbox
 pub mod app;
-pub mod cat_log;
+pub mod pref_log;
 
 // export for app
 mod local_server;
@@ -14,7 +14,7 @@ use std::fs::File;
 use tokio::macros::support::Future;
 
 // use externs
-use log;
+
 
 pub trait Server {
     async fn run(&self);
