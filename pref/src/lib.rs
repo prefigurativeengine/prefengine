@@ -3,12 +3,12 @@ compile_error!("Windows only");
 
 // export for sandbox
 pub mod app;
-pub mod pref_log;
+pub mod core;
 
 // export for app
 mod local_server;
 
-// private mod
+// private mods
 
 use std::fs::File;
 use tokio::macros::support::Future;

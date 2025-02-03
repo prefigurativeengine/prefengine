@@ -1,4 +1,4 @@
-use crate::pref_log;
+use crate::core;
 
 use std::env;
 use std::path::Path;
@@ -13,7 +13,7 @@ impl Engine
 {
     pub async fn new() -> Engine 
     {
-        pref_log::init_styled_logger();
+        core::pref_log::init_styled_logger();
         log::info!("Initialized log");
         
         let ssb_tcp_result = SSBTcpServer::new().await;
