@@ -1,17 +1,17 @@
 
-extern crate gateways;
+extern crate pref;
 use std::future::IntoFuture;
 
-use gateways::{ app::Engine as cat_engine, Server};
+use pref::{ app::Engine as pref_engine, Server};
 use tokio;
 
 pub struct Sandbox {
-    eng: cat_engine
+    eng: pref_engine
 }
 
 impl Sandbox {
     async fn new() -> Sandbox {
-        let e: cat_engine = cat_engine::new().await;
+        let e: pref_engine = pref_engine::new().await;
         return Sandbox { eng: e };
     }
 }
@@ -25,5 +25,5 @@ impl Server for Sandbox  {
 #[tokio::main]
 async fn main() {
     let s: Box<Sandbox> = Box::new(Sandbox::new().await);
-    gateways::main(s).await;
+    pref::main(s).await;
 }

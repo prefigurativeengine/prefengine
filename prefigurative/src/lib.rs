@@ -9,7 +9,6 @@ pub mod cat_log;
 mod local_server;
 
 // private mod
-mod ssb;
 
 use std::fs::File;
 use tokio::macros::support::Future;
