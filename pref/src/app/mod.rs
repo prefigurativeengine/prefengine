@@ -6,7 +6,7 @@ use std::fs;
 
 pub struct Engine 
 {
-    ssb_server: SSBTcpServer
+    
 }
 
 impl Engine 
@@ -16,23 +16,22 @@ impl Engine
         core::pref_log::init_styled_logger();
         log::info!("Initialized log");
         
-        let ssb_tcp_result = SSBTcpServer::new().await;
-        if ssb_tcp_result.is_err() {
-            panic!("{}", ssb_tcp_result.err().unwrap());
-        }
+        // let ssb_tcp_result = SSBTcpServer::new().await;
+        // if ssb_tcp_result.is_err() {
+        //     panic!("{}", ssb_tcp_result.err().unwrap());
+        // }
 
-        let ssb_tcp = ssb_tcp_result.unwrap();
+        // let ssb_tcp = ssb_tcp_result.unwrap();
 
         return Engine {
-            ssb_server: ssb_tcp
         };
     }
 
     pub async fn run(&self) 
     {
         let first_start = Engine::is_first_time();
-        if (first_start) {
-            ssb_id::first_time_id_gen().await;
+        if first_start {
+            
         }
 
         // auth
