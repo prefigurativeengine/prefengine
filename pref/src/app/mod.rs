@@ -3,10 +3,16 @@ use crate::core;
 use std::env;
 use std::path::Path;
 use std::fs;
+use std::str::FromStr;
+use crate::discovery;
+use crate::discovery::{ DiscoveryResult, DiscoveryError, NetError };
+use libp2p::{Multiaddr};
+use std::net::{Ipv4Addr};
 
 pub struct Engine 
 {
-    
+    discov_result: DiscoveryResult,
+    external_ip: Ipv4Addr
 }
 
 impl Engine 
@@ -23,16 +29,40 @@ impl Engine
 
         // let ssb_tcp = ssb_tcp_result.unwrap();
 
+        //let mut ips = IPDiscoveryData { internal_ip: "".to_owned(), external_ip: "".to_owned() };
+
+        let mut ext_addr = Ipv4Addr::from_str("127.0.0.1");
+        let mut upnp_success = false;
+        let first_start = Engine::is_first_time();
+        if first_start {
+            let discov_res = discovery::try_upnp_setup();
+
+
+            if let Ok(ip) = discov_res {
+                log::info!("UPnP enabled");
+                ext_addr = Ipv4Addr::from_str(&ip);
+                upnp_enabled = true;
+            } else if let Err(err) = discov_res {
+                match err {
+                    DiscoveryError::NetError(msg) => {
+                        panic!("Internet request failed: {}", msg);
+                    }
+                    DiscoveryError::NATError(msg) => {
+                        panic!("UPnP failed: {}", msg);
+                    }
+                }
+            }
+        }
+
         return Engine {
+            discov_result: DiscoveryResult { upnp_enabled: upnp_success },
+            external_ip: ext_addr
         };
     }
 
     pub async fn run(&self) 
     {
-        let first_start = Engine::is_first_time();
-        if first_start {
-            
-        }
+        
 
         // auth
 
@@ -40,7 +70,6 @@ impl Engine
 
         // circle conn
 
-        crate::local_server::start().await;
     }
 
     fn is_first_time() -> bool 
@@ -61,5 +90,4 @@ impl Engine
 
      
 }
-
 

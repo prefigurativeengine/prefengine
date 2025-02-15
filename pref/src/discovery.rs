@@ -54,7 +54,7 @@ use pnet::datalink::{interfaces, NetworkInterface};
 
 pub struct DiscoveryResult 
 {
-    upnp_enabled: bool
+    pub upnp_enabled: bool
 }
 
 use std::error::Error;
