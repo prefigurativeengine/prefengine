@@ -6,15 +6,13 @@ pub mod app;
 pub mod core;
 
 // export for app
-mod local_server;
+
 
 // private mods
 
-use std::fs::File;
-use tokio::macros::support::Future;
 
 // use externs
-
+mod discovery;
 
 pub trait Server {
     async fn run(&self);

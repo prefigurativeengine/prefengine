@@ -22,16 +22,7 @@ impl Engine
         core::pref_log::init_styled_logger();
         log::info!("Initialized log");
         
-        // let ssb_tcp_result = SSBTcpServer::new().await;
-        // if ssb_tcp_result.is_err() {
-        //     panic!("{}", ssb_tcp_result.err().unwrap());
-        // }
-
-        // let ssb_tcp = ssb_tcp_result.unwrap();
-
-        //let mut ips = IPDiscoveryData { internal_ip: "".to_owned(), external_ip: "".to_owned() };
-
-        let mut ext_addr = Ipv4Addr::from_str("127.0.0.1");
+        let mut ext_addr = Ipv4Addr::from_str("127.0.0.1").expect("no");
         let mut upnp_success = false;
         let first_start = Engine::is_first_time();
         if first_start {
@@ -40,8 +31,8 @@ impl Engine
 
             if let Ok(ip) = discov_res {
                 log::info!("UPnP enabled");
-                ext_addr = Ipv4Addr::from_str(&ip);
-                upnp_enabled = true;
+                ext_addr = Ipv4Addr::from_str(&ip).expect("myexternalip.com failed...");;
+                upnp_success = true;
             } else if let Err(err) = discov_res {
                 match err {
                     DiscoveryError::NetError(msg) => {
