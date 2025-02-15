@@ -7,4 +7,7 @@ edition = "2021"
 
 [dependencies]
 pref = { path = "../pref" }
-tokio = { version = "1.36" }
+tokio = { version = "1.38" }
+axum = "0.7"
+log = "0.4"
+simple_logger = "4"
