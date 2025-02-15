@@ -4,6 +4,7 @@ use std::future::IntoFuture;
 
 use pref::{ app::Engine as pref_engine, Server};
 use tokio;
+use std::thread as thread;
 
 pub struct Sandbox {
     eng: pref_engine
@@ -22,8 +23,14 @@ impl Server for Sandbox  {
     }
 }
 
+
+mod webserver;
+
+
+
 #[tokio::main]
 async fn main() {
+    thread::spawn(|| webserver::start);
     let s: Box<Sandbox> = Box::new(Sandbox::new().await);
     pref::main(s).await;
 }
