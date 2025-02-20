@@ -13,6 +13,7 @@ pub mod core;
 
 // use externs
 mod discovery;
+mod peer_server;
 
 pub trait Server {
     async fn run(&self);

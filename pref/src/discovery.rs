@@ -64,7 +64,7 @@ use easy_upnp::{add_ports, Ipv4Cidr, PortMappingProtocol, UpnpConfig};
 fn get_config() -> UpnpConfig {
     let config_no_address = UpnpConfig {
         address: None,
-        port: 80,
+        port: PREF_PEER_PORT,
         protocol: PortMappingProtocol::TCP,
         duration: 3600,
         comment: "Server".to_string(),
@@ -109,7 +109,7 @@ pub fn try_upnp_setup() -> Result<String, DiscoveryError> {
 
 
 fn get_public_ip() -> Result<String, Box<dyn Error>> {
-    let mut res = reqwest::blocking::get("http://myexternalip.com/raw")?.text()?;
+    let res = reqwest::blocking::get("http://myexternalip.com/raw")?.text()?;
 
     Ok(res)
 }
