@@ -1,5 +1,9 @@
+
+use crate::peer_server::connection;
+
 pub struct Peer {
     state: PeerState,
+    connection: connection::TcpConnection,
     info: PeerInfo
 }
 
