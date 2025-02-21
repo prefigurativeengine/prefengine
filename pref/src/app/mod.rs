@@ -1,4 +1,4 @@
-use crate::core;
+use crate::{core, peer_server};
 
 use std::env;
 use std::path::Path;
@@ -12,7 +12,8 @@ use std::net::{Ipv4Addr};
 pub struct Engine 
 {
     discov_result: DiscoveryResult,
-    external_ip: Ipv4Addr
+    external_ip: Ipv4Addr,
+    server: peer_server::Server
 }
 
 impl Engine 

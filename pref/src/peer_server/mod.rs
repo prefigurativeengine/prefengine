@@ -1,12 +1,18 @@
-use std::net::{self, TcpListener, TcpStream};
+use std::net::{self, Ipv4Addr, TcpListener, TcpStream};
 use std::thread; 
 
 mod peer;
+use peer::Peer;
+
 use crate::peer_server::peer::PeerInfo;
+
+mod connection;
+use crate::peer_server::connection;
+
 
 pub struct Server {
     new_peer_listener: net::TcpListener,
-    connections: Vec<net::TcpStream>,
+    peers: Vec<Peer>
 }
 
 /*
@@ -35,6 +41,8 @@ impl Server {
             connections: Vec::new(),
         };
 
+        //init valid peer addrs
+
         server
     }
 
@@ -52,17 +60,28 @@ impl Server {
 
     }
 
-    fn peer_connect(&self) {
-        let peers = PeerInfo::load_peers();
-        for peer in [0, 343, 4324, 4] {
-            let stm_res = TcpStream::connect("addr");
-            match stm_res {
-                Ok(stm) => {
-                    self.on_peer_connect(stm);
-                    self.connections.push(stm);
-                },
-                Err(error) => self.handle_conn_failure(peer)
+    fn peer_connect_all() {
+        if let Ok(peers) = PeerInfo::load_peers() {
+            for peer in peers {
+                peer_connect(peer);
             }
+            return Ok(());
+        }
+        else {
+            return Err("Failed to load peers")
+        }
+    }
+
+    fn peer_connect(&self, peers: PeerInfo) -> Result<(), &str> {
+        let stm_res = TcpStream::connect(peer.network_space.addr);
+        match stm_res {
+            Ok(stm) => {
+                self.on_peer_connect(stm);
+
+                let conn = connection::TcpConnection::new(peer, stm);
+                self.connections.push(conn);
+            },
+            Err(error) => self.handle_conn_failure(peer)
         }
     }
 
@@ -71,19 +90,26 @@ impl Server {
     }
 
     fn peer_listen(&self) {
-        let mut self_clone = self.clone();
-        
         thread::spawn(|| {
             for stream in self.new_peer_listener.incoming() {
                 match stream {
-                    Ok(stream) => self_clone.on_peer_connect(stream),
+                    Ok(stream) => self.on_new_peer_connect(stream),
                     Err(error) => eprintln!("Error when tried to use stream"),
                 }
             }
         });
     }
     
-    fn on_peer_connect(&mut self, stream: TcpStream) {
-        self.connections.write().unwrap().insert(*id, stream);
+    fn on_new_peer_connect(&self, stream: TcpStream) {
+        // check if a valid ip addr
+        if self.valid_peer_addrs.contains(stream.peer_addr()) {
+            // add as connection
+        } else {
+            // if not a valid ip, peek msg to see full of identity of remote 
+            stream.read_timeout();
+            // if invalid identity, drop
+
+            // if valid, add as connection and update ip addr
+        }
     }
 }
