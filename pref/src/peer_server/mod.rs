@@ -5,6 +5,7 @@ mod peer;
 use peer::Peer;
 
 use crate::peer_server::peer::PeerInfo;
+use crate::peer_server::peer::PeerType;
 
 mod connection;
 use crate::peer_server::connection;
@@ -38,16 +39,14 @@ impl Server {
         let server = Server {
             new_peer_listener: TcpListener::bind(PREF_PEER_URL)
                 .expect("Could not start the server"),
-            connections: Vec::new(),
+            peers: Vec::new(),
         };
-
-        //init valid peer addrs
 
         server
     }
 
     pub fn start(&self) {
-        self.peer_connect();
+        self.peer_connect_all();
         self.peer_listen();
     }
 
@@ -60,8 +59,8 @@ impl Server {
 
     }
 
-    fn peer_connect_all() {
-        if let Ok(peers) = PeerInfo::load_peers() {
+    fn peer_connect_all() -> Result<(), &str> {
+        if let Ok(peers) = PeerInfo::load_remote_peers() {
             for peer in peers {
                 peer_connect(peer);
             }
@@ -72,14 +71,26 @@ impl Server {
         }
     }
 
-    fn peer_connect(&self, peers: PeerInfo) -> Result<(), &str> {
+    fn peer_connect(&self, peer: PeerInfo) -> Result<(), &str> {
+        if peer.p_type == PeerType::Local {
+            return Err(("Local peer cannot be connected to."))
+        }
+
         let stm_res = TcpStream::connect(peer.network_space.addr);
         match stm_res {
             Ok(stm) => {
-                self.on_peer_connect(stm);
+                let tcp_conn = connection::TcpConnection::new(peer, stm);
 
-                let conn = connection::TcpConnection::new(peer, stm);
-                self.connections.push(conn);
+                // TODO: impl communication of state
+                let dummy_state = PeerState::Active;
+
+                self.peers.push(
+                    Peer {
+                        state: dummy_state,
+                        connection: tcp_conn,
+                        info: peer
+                    }
+                );
             },
             Err(error) => self.handle_conn_failure(peer)
         }
