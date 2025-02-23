@@ -1,7 +1,5 @@
 use std::fmt as fmt;
 
-const PREF_PEER_PORT: &str = "3501";
-
 #[derive(Debug)]
 pub enum DiscoveryError {
     NetError(String),
@@ -64,7 +62,7 @@ use easy_upnp::{add_ports, Ipv4Cidr, PortMappingProtocol, UpnpConfig};
 fn get_config() -> UpnpConfig {
     let config_no_address = UpnpConfig {
         address: None,
-        port: PREF_PEER_PORT.,
+        port: PREF_PEER_PORT,
         protocol: PortMappingProtocol::TCP,
         duration: 3600,
         comment: "Server".to_string(),
