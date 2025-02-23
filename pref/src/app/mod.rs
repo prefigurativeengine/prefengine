@@ -9,23 +9,23 @@ use crate::discovery::{ DiscoveryResult, DiscoveryError, NetError };
 use libp2p::{Multiaddr};
 use std::net::{Ipv4Addr};
 
-pub struct Engine 
+pub struct Overlay 
 {
     discov_result: DiscoveryResult,
     external_ip: Ipv4Addr,
     server: peer_server::Server
 }
 
-impl Engine 
+impl Overlay 
 {
-    pub async fn new() -> Engine 
+    pub async fn new() -> Overlay 
     {
         core::pref_log::init_styled_logger();
         log::info!("Initialized log");
         
         let mut ext_addr = Ipv4Addr::from_str("127.0.0.1").expect("no");
         let mut upnp_success = false;
-        let first_start = Engine::is_first_time();
+        let first_start = Overlay::is_first_time();
         if first_start {
             let discov_res = discovery::try_upnp_setup();
 
@@ -46,9 +46,10 @@ impl Engine
             }
         }
 
-        return Engine {
+        return Overlay {
             discov_result: DiscoveryResult { upnp_enabled: upnp_success },
-            external_ip: ext_addr
+            external_ip: ext_addr,
+            
         };
     }
 
