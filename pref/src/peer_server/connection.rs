@@ -3,22 +3,20 @@ use std::net::TcpStream;
 
 use crate::peer_server::peer;
 pub struct TcpConnection {
-    peer_ref: &peer::Peer,
-    strengh: TcpStrength,
-    visibilities: Vec<u32>,
+    strength: TcpStrength,
+    visibles: Vec<u32>,
     net_type: NetType,
     tcp_stream: TcpStream
 }
 
 
 impl TcpConnection {
-    pub fn new(peer: &peer::Peer, stm: TcpStream) -> TcpConnection {
+    pub fn new(stm: TcpStream) -> TcpConnection {
         return TcpConnection {
-            peer,
-            TcpStrength { },
-            vec![0, 2],
-            NetType { },
-            stm
+            strength: TcpStrength { },
+            visibles: vec![0, 2],
+            net_type: NetType::Internet,
+            tcp_stream: stm
         }
     }
 
@@ -36,7 +34,8 @@ impl TcpConnection {
 struct TcpStrength {
     /* 
     msg_readiness: MsgReadiness,
-    signal_quality: SignalQuality */
+    signal_quality: SignalQuality 
+    */
 }
 
 

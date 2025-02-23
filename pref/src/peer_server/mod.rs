@@ -4,11 +4,12 @@ use std::thread;
 mod peer;
 use peer::Peer;
 
-use crate::peer_server::peer::PeerInfo;
-use crate::peer_server::peer::PeerType;
+use crate::peer_server::peer::{self, *};
 
 mod connection;
-use crate::peer_server::connection;
+use crate::peer_server::connection as conn;
+
+use crate::core::{self, *};
 
 
 pub struct Server {
@@ -32,7 +33,6 @@ pub struct Server {
 
 */
 
-const PREF_PEER_URL: &str = "0.0.0.0:3501";
 
 impl Server {
     pub fn new(url: String) -> Server {
@@ -59,40 +59,53 @@ impl Server {
 
     }
 
-    fn peer_connect_all() -> Result<(), &str> {
+    fn peer_connect_all(&mut self) -> Result<(), String> {
         if let Ok(peers) = PeerInfo::load_remote_peers() {
             for peer in peers {
-                peer_connect(peer);
+                self.peer_connect(peer);
             }
             return Ok(());
         }
         else {
-            return Err("Failed to load peers")
+            return Err("Failed to load peers".to_owned())
         }
     }
 
-    fn peer_connect(&self, peer: PeerInfo) -> Result<(), &str> {
-        if peer.p_type == PeerType::Local {
+    // TCP only
+    fn peer_connect(&mut self, peer: PeerInfo) -> Result<(), &str> {
+        if matches!(peer.p_type, PeerType::Local { local_space: _ }) {
             return Err(("Local peer cannot be connected to."))
         }
-
-        let stm_res = TcpStream::connect(peer.network_space.addr);
-        match stm_res {
-            Ok(stm) => {
-                let tcp_conn = connection::TcpConnection::new(peer, stm);
-
-                // TODO: impl communication of state
-                let dummy_state = PeerState::Active;
-
-                self.peers.push(
-                    Peer {
-                        state: dummy_state,
-                        connection: tcp_conn,
-                        info: peer
-                    }
-                );
+        
+        match peer.network_space.addr.ip {
+            None => {
+                return Err(("peer_connect not for bluetooth."))
             },
-            Err(error) => self.handle_conn_failure(peer)
+            Some(ip) => {
+                // TODO: run through a list of connection tactics according to values in peerinfo
+                let stm_res = TcpStream::connect(
+                    SocketAddrV4::new(ip, core::PREF_PEER_PORT)
+                );
+
+                match stm_res {
+                    Ok(stm) => {
+                        let tcp_conn = connection::TcpConnection::new(peer, stm);
+        
+                        // TODO: impl communication of state
+                        let dummy_state = PeerState::Active;
+        
+                        self.peers.push(
+                            Peer {
+                                state: dummy_state,
+                                connection: tcp_conn,
+                                info: peer
+                            }
+                        );
+                    },
+
+                    Err(error) => self.handle_conn_failure(peer)
+                }
+            }
         }
     }
 

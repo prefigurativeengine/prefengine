@@ -23,13 +23,14 @@ pub struct PeerInfo {
 }
 
 use crate::core::dir;
-use std::{fs, net::Ipv4Addr, path::PathBuf, str::FromStr};
+use std::net::Ipv4Addr;
+use std::{fs, path::PathBuf, str::FromStr};
+use std::path;
 
 impl PeerInfo {
-    pub fn load_remote_peers() -> Result<Vec<PeerInfo>, &str> {
-        let peer_path = dir::get_root_file_path("peers.json");
+    pub fn load_remote_peers() -> Result<Vec<PeerInfo>, String> {
 
-        match get_peers_from_disk(peer_path) {
+        match dir::get_root_file_path("peers.json") {
             Ok(peers_str) => {
                 // TODO: filter out local peer
                 let mut disk_peers: Vec<PeerInfo> = PeerInfo::get_peers_from_disk(peers_str)
@@ -38,7 +39,7 @@ impl PeerInfo {
             }
 
             Err(err) => {
-                return Err("Failed to read peers json.")
+                return Err(err)
             }
 
         }
@@ -78,14 +79,15 @@ impl PeerInfo {
             let pi1 = PeerInfo {
                 p_type: PeerType::Remote,
                 network_space: NetworkSide {
-                    addr: PeerAddress::Ip(
-                        Ipv4Addr::from_str("s").expect("msg")
-                    )
+                    addr: PeerAddress {
+                        ip: Some(Ipv4Addr::from_str("s").expect("msg"))
+                        bt: None
+                    }
                 },
                 capability_type: PeerCapability::Desktop,
             };
 
-            return Ok(vec![pi1, pi2]);
+            return Ok(vec![pi1]);
         }
 
         else {
@@ -126,9 +128,9 @@ struct NetworkSide {
     pub addr: PeerAddress
 }
 
-// make it so that either or both of ip and bluetooth can be set but one must be set
-enum PeerAddress {
-    Ip(Ipv4Addr),
-    Bluetooth(String)
+// TODO: make it so that either or both of ip and bluetooth can be set but one must be set
+struct PeerAddress {
+    ip: Option<Ipv4Addr>,
+    bt: Option<String>
 }
 
