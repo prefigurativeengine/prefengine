@@ -67,10 +67,18 @@ import os
 class RNSApi:
     identity: RNS.Identity
     dest: RNS.Destination
+
+    # prefengine for now, should probably be user-input in future
     APP_NAME: str
 
-    def __init__(self, name):
+    # correlates to capability_type of device for now
+    APP_ASPECTS: list[str]
+
+    RATCHET_PATH: str
+
+    def __init__(self, name, aspects):
         APP_NAME = name
+        APP_ASPECTS = aspects
 
     @staticmethod
     def start_server(config_p, host='127.0.0.1', port=3502):
@@ -129,13 +137,38 @@ class RNSApi:
             self.identity = RNS.Identity()
 
         elif action == "destination":
+            if not self.identity:
+                print("destination was called, but identity has not been set.")
+                return
+            
+            direct = self.get_direction(obj["direction"]) 
+            if direct == 0:
+                print("direction in obj not recongnized.")
+                return
+            
             self.dest = RNS.Destination(
-                identity=self.identity,
-                direction=obj["direction"],
-                type=RNS.Destination.GROUP,
-                app_name=self.APP_NAME,
-                aspects='new_peer'
+                self.identity,
+                direct,
+                RNS.Destination.GROUP,
+                self.APP_NAME,
+                *self.APP_ASPECTS
             )
+
+            # TODO: test the computational and bandwidth cost of proving all 
+            self.dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
+
+            # req handler
+            self.dest.register_request_handler(
+                "/new-peer",
+                self.handle_new_peer,
+                RNS.Destination.ALLOW_ALL
+            )
+
+            # enable ratchets, enforce
+            self.dest.enable_ratchets(self.RATCHET_PATH)
+            self.dest.enforce_ratchets()
+
+
 
         elif action == "sadsa":
             print()
@@ -146,6 +179,19 @@ class RNSApi:
         else:
             print("action in JSON not recongnized.")
             return
+    
+    def get_direction(json_direction):
+        if json_direction == 1:
+            return RNS.Destination.IN
+        elif json_direction == 2:
+            return RNS.Destination.OUT
+        else:
+            return 0
+    
+    # REQUEST HANDLERS
+
+    def handle_new_peer(self):
+        pass
 
 
 # consider maintaining as much state as possible in rust, so that only create and updates would be needed here
