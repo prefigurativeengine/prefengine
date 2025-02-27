@@ -168,14 +168,6 @@ class RNSApi:
             self.dest.enable_ratchets(self.RATCHET_PATH)
             self.dest.enforce_ratchets()
 
-
-
-        elif action == "sadsa":
-            print()
-        
-        elif action == "sadsa":
-            print()
-
         else:
             print("action in JSON not recongnized.")
             return
