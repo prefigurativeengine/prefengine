@@ -63,10 +63,11 @@ import socket
 import json
 import os
 
-
+# TODO: mark private methods
 class RNSApi:
     identity: RNS.Identity
-    dest: RNS.Destination
+    new_peer_dest: RNS.Destination
+    reconnect_dest: RNS.Destination
 
     # prefengine for now, should probably be user-input in future
     APP_NAME: str
@@ -76,18 +77,26 @@ class RNSApi:
 
     RATCHET_PATH: str
 
-    def __init__(self, name, aspects):
+    def __init__(self, name, aspects, config_p):
         APP_NAME = name
         APP_ASPECTS = aspects
 
-    @staticmethod
-    def start_server(config_p, host='127.0.0.1', port=3502):
+        ret = RNS.Reticulum(configdir=config_p)
+
+        self.identity = RNS.Identity()
+
+        self.create_new_peer_dest()
+        self.create_reconnect_dest()
+
+
+
+
+
+    def start_server(self, host='127.0.0.1', port=3502):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind((host, port))
         server_socket.listen(1)
         print(f"Server listening on {host}:{port}")
-
-        ret = RNS.Reticulum(configdir=config_p)
 
         while True:
             client_socket, addr = server_socket.accept()
@@ -103,7 +112,7 @@ class RNSApi:
             try:
                 json_data = json.loads(data.decode('utf-8'))
                 print("Received JSON:", json.dumps(json_data, indent=2))
-                handle_json(json_data)
+                self.handle_json(json_data)
             except json.JSONDecodeError:
                 print("Error: Received invalid JSON data")
             
@@ -133,14 +142,14 @@ class RNSApi:
         action: str = json_req["action"]
         obj: dict = json_req["obj"]
         
+        # TODO: move to init
         if action == "identity":
             self.identity = RNS.Identity()
 
         elif action == "destination":
-            direct = self.get_direction(obj["direction"]) 
-            if direct == 0:
-                print("direction in obj not recongnized.")
-                return
+            
+            
+        
 
         else:
             print("action in JSON not recongnized.")
@@ -151,7 +160,7 @@ class RNSApi:
             print("destination was called, but identity has not been set.")
             return
         
-        self.dest = RNS.Destination(
+        self.reconnect_dest = RNS.Destination(
             self.identity,
             RNS.Destination.OUT,
             RNS.Destination.GROUP,
@@ -160,18 +169,18 @@ class RNSApi:
         )
 
         # TODO: test the computational and bandwidth cost of proving all 
-        self.dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
+        self.reconnect_dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
 
         # req handler
-        self.dest.register_request_handler(
+        self.reconnect_dest.register_request_handler(
             "/sync-db",
             self.handle_sync_db,
             RNS.Destination.ALLOW_ALL
         )
 
         # enable ratchets, enforce
-        self.dest.enable_ratchets(self.RATCHET_PATH)
-        self.dest.enforce_ratchets()
+        self.reconnect_dest.enable_ratchets(self.RATCHET_PATH)
+        self.reconnect_dest.enforce_ratchets()
 
 
     def create_new_peer_dest(self):
@@ -179,7 +188,7 @@ class RNSApi:
             print("destination was called, but identity has not been set.")
             return
         
-        self.dest = RNS.Destination(
+        self.new_peer_dest = RNS.Destination(
             self.identity,
             RNS.Destination.IN,
             RNS.Destination.GROUP,
@@ -188,18 +197,18 @@ class RNSApi:
         )
 
         # TODO: test the computational and bandwidth cost of proving all 
-        self.dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
+        self.new_peer_dest.set_proof_strategy(RNS.new_peer_destination.PROVE_ALL)
 
         # req handler
-        self.dest.register_request_handler(
+        self.new_peer_dest.register_request_handler(
             "/new-peer",
             self.handle_new_peer,
-            RNS.Destination.ALLOW_ALL
+            RNS.new_peer_destination.ALLOW_ALL
         )
 
         # enable ratchets, enforce
-        self.dest.enable_ratchets(self.RATCHET_PATH)
-        self.dest.enforce_ratchets()
+        self.new_peer_dest.enable_ratchets(self.RATCHET_PATH)
+        self.new_peer_dest.enforce_ratchets()
     
     def get_direction(json_direction):
         if json_direction == 1:
