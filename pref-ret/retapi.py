@@ -73,13 +73,12 @@ class RNSApi:
     APP_NAME: str
 
     # correlates to capability_type of device for now
-    APP_ASPECTS: list[str]
+    # APP_ASPECTS: list[str]
 
     RATCHET_PATH: str
 
-    def __init__(self, name, aspects, config_p):
+    def __init__(self, name, config_p):
         APP_NAME = name
-        APP_ASPECTS = aspects
 
         ret = RNS.Reticulum(configdir=config_p)
 
@@ -87,6 +86,18 @@ class RNSApi:
 
         self.create_new_peer_dest()
         self.create_reconnect_dest()
+
+
+
+        # how handle link:
+
+        # new_peer - 
+        # will listen for link establishments, do extra checks, then put peer in hashmap of links, or acknoledging a new group member; if new, also starting replication process so new peer can connect to all other peers 
+
+        # reconnect - 
+        # will recall identities and dests from disk, then establish links for each peer, putting all links in a hasmap 
+
+
 
 
 
@@ -163,9 +174,8 @@ class RNSApi:
         self.reconnect_dest = RNS.Destination(
             self.identity,
             RNS.Destination.OUT,
-            RNS.Destination.GROUP,
+            RNS.Destination.SINGLE,
             self.APP_NAME,
-            *self.APP_ASPECTS
         )
 
         # TODO: test the computational and bandwidth cost of proving all 
@@ -191,9 +201,8 @@ class RNSApi:
         self.new_peer_dest = RNS.Destination(
             self.identity,
             RNS.Destination.IN,
-            RNS.Destination.GROUP,
+            RNS.Destination.SINGLE,
             self.APP_NAME,
-            *self.APP_ASPECTS
         )
 
         # TODO: test the computational and bandwidth cost of proving all 
