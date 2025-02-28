@@ -137,40 +137,69 @@ class RNSApi:
             self.identity = RNS.Identity()
 
         elif action == "destination":
-            if not self.identity:
-                print("destination was called, but identity has not been set.")
-                return
-            
             direct = self.get_direction(obj["direction"]) 
             if direct == 0:
                 print("direction in obj not recongnized.")
                 return
-            
-            self.dest = RNS.Destination(
-                self.identity,
-                direct,
-                RNS.Destination.GROUP,
-                self.APP_NAME,
-                *self.APP_ASPECTS
-            )
-
-            # TODO: test the computational and bandwidth cost of proving all 
-            self.dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
-
-            # req handler
-            self.dest.register_request_handler(
-                "/new-peer",
-                self.handle_new_peer,
-                RNS.Destination.ALLOW_ALL
-            )
-
-            # enable ratchets, enforce
-            self.dest.enable_ratchets(self.RATCHET_PATH)
-            self.dest.enforce_ratchets()
 
         else:
             print("action in JSON not recongnized.")
             return
+        
+    def create_reconnect_dest(self):
+        if not self.identity:
+            print("destination was called, but identity has not been set.")
+            return
+        
+        self.dest = RNS.Destination(
+            self.identity,
+            RNS.Destination.OUT,
+            RNS.Destination.GROUP,
+            self.APP_NAME,
+            *self.APP_ASPECTS
+        )
+
+        # TODO: test the computational and bandwidth cost of proving all 
+        self.dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
+
+        # req handler
+        self.dest.register_request_handler(
+            "/sync-db",
+            self.handle_sync_db,
+            RNS.Destination.ALLOW_ALL
+        )
+
+        # enable ratchets, enforce
+        self.dest.enable_ratchets(self.RATCHET_PATH)
+        self.dest.enforce_ratchets()
+
+
+    def create_new_peer_dest(self):
+        if not self.identity:
+            print("destination was called, but identity has not been set.")
+            return
+        
+        self.dest = RNS.Destination(
+            self.identity,
+            RNS.Destination.IN,
+            RNS.Destination.GROUP,
+            self.APP_NAME,
+            *self.APP_ASPECTS
+        )
+
+        # TODO: test the computational and bandwidth cost of proving all 
+        self.dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
+
+        # req handler
+        self.dest.register_request_handler(
+            "/new-peer",
+            self.handle_new_peer,
+            RNS.Destination.ALLOW_ALL
+        )
+
+        # enable ratchets, enforce
+        self.dest.enable_ratchets(self.RATCHET_PATH)
+        self.dest.enforce_ratchets()
     
     def get_direction(json_direction):
         if json_direction == 1:
@@ -182,7 +211,11 @@ class RNSApi:
     
     # REQUEST HANDLERS
 
+    # handles previously off org members (peers) as well as newly added org members (temp_peers)
     def handle_new_peer(self):
+        pass
+
+    def handle_sync_db():
         pass
 
 
