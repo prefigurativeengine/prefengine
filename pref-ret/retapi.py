@@ -68,6 +68,7 @@ class RNSApi:
     identity: RNS.Identity
     new_peer_dest: RNS.Destination
     reconnect_dest: RNS.Destination
+    peer_conns: dict[str, RNS.Link]
 
     # prefengine for now, should probably be user-input in future
     APP_NAME: str
@@ -77,15 +78,32 @@ class RNSApi:
 
     RATCHET_PATH: str
 
-    def __init__(self, name, config_p):
+    def __init__(self, name, config_p, peer_ids: list[str]):
         APP_NAME = name
 
         ret = RNS.Reticulum(configdir=config_p)
 
         self.identity = RNS.Identity()
 
+        # two sides of the same theoretical endpoint
         self.create_new_peer_dest()
         self.create_reconnect_dest()
+
+        # create links
+        self.new_peer_dest.set_link_established_callback(self.handle_new_peer)
+
+        for id in peer_ids:
+            # TODO: check for path exists for remote dest
+            id_obj = RNS.Identity.recall(id)
+            r_dest = RNS.Destination(
+                id_obj,
+                RNS.Destination.OUT,
+                RNS.Destination.SINGLE,
+                self.APP_NAME,
+            )
+            r_link = RNS.Link(r_dest, self.handle_reconnect, self.handle_disconnect)
+
+            self.peer_conns[id] = r_link
 
 
 
@@ -230,7 +248,17 @@ class RNSApi:
     # REQUEST HANDLERS
 
     # handles previously off org members (peers) as well as newly added org members (temp_peers)
-    def handle_new_peer(self):
+    def handle_new_peer():
+        # do extra checks, then put peer in hashmap of links, or acknoledging a new group member; 
+        # if new, also starting replication process so new peer can connect to all other peers 
+
+
+        pass
+    
+    def handle_reconnect():
+        pass
+
+    def handle_disconnect():
         pass
 
     def handle_sync_db():
