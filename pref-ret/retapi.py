@@ -78,8 +78,9 @@ class RNSApi:
 
     RATCHET_PATH: str
 
-    def __init__(self, name, config_p, peer_ids: list[str]):
-        APP_NAME = name
+    def __init__(self, name, config_p, ratchet_p, peer_ids: list[str]):
+        self.APP_NAME = name
+        self.RATCHET_PATH = ratchet_p
 
         ret = RNS.Reticulum(configdir=config_p)
 
@@ -104,21 +105,6 @@ class RNSApi:
             r_link = RNS.Link(r_dest, self.handle_reconnect, self.handle_disconnect)
 
             self.peer_conns[id] = r_link
-
-
-
-        # how handle link:
-
-        # new_peer - 
-        # will listen for link establishments, do extra checks, then put peer in hashmap of links, or acknoledging a new group member; if new, also starting replication process so new peer can connect to all other peers 
-
-        # reconnect - 
-        # will recall identities and dests from disk, then establish links for each peer, putting all links in a hasmap 
-
-
-
-
-
 
 
     def start_server(self, host='127.0.0.1', port=3502):
@@ -172,14 +158,9 @@ class RNSApi:
         obj: dict = json_req["obj"]
         
         # TODO: move to init
-        if action == "identity":
+        if action == "send":
             self.identity = RNS.Identity()
-
-        elif action == "destination":
-            
-            
         
-
         else:
             print("action in JSON not recongnized.")
             return
@@ -248,9 +229,13 @@ class RNSApi:
     # REQUEST HANDLERS
 
     # handles previously off org members (peers) as well as newly added org members (temp_peers)
-    def handle_new_peer():
+    def handle_new_peer(self, link):
         # do extra checks, then put peer in hashmap of links, or acknoledging a new group member; 
         # if new, also starting replication process so new peer can connect to all other peers 
+
+        if self.validate_link(link):
+            self.peer_conns[id] = r_link
+        
 
 
         pass
@@ -263,6 +248,15 @@ class RNSApi:
 
     def handle_sync_db():
         pass
+
+    # how handle link:
+
+    # new_peer - 
+    # will listen for link establishments, do extra checks, then put peer in hashmap of links, or acknoledging a 
+    # new group member; if new, also starting replication process so new peer can connect to all other peers 
+
+    # reconnect - 
+    # will recall identities and dests from disk, then establish links for each peer, putting all links in a hasmap 
 
 
 # consider maintaining as much state as possible in rust, so that only create and updates would be needed here
