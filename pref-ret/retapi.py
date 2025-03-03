@@ -69,6 +69,7 @@ class RNSApi:
     new_peer_dest: RNS.Destination
     reconnect_dest: RNS.Destination
     peer_conns: dict[str, RNS.Link]
+    client_socket: socket.socket
 
     # prefengine for now, should probably be user-input in future
     APP_NAME: str
@@ -91,7 +92,7 @@ class RNSApi:
         self.create_reconnect_dest()
 
         # create links
-        self.new_peer_dest.set_link_established_callback(self.handle_new_peer)
+        self.new_peer_dest.set_link_established_callback(self.handle_remote)
 
         for id in peer_ids:
             # TODO: check for path exists for remote dest
@@ -102,36 +103,40 @@ class RNSApi:
                 RNS.Destination.SINGLE,
                 self.APP_NAME,
             )
-            r_link = RNS.Link(r_dest, self.handle_reconnect, self.handle_disconnect)
+            r_link = RNS.Link(r_dest)
+            r_link.set_resource_concluded_callback(self.handle_remote_res_fin)
 
             self.peer_conns[id] = r_link
+        
+        self.client_listen()
 
 
-    def start_server(self, host='127.0.0.1', port=3502):
+    def client_listen(self, host='127.0.0.1', port=3502):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind((host, port))
-        server_socket.listen(1)
+        server_socket.listen(0)
         print(f"Server listening on {host}:{port}")
 
         while True:
-            client_socket, addr = server_socket.accept()
+            self.client_socket, addr = server_socket.accept()
             print(f"Connection received from {addr}")
             
             data = b''
             while True:
-                chunk = client_socket.recv(1024)
+                chunk = self.client_socket.recv(1024)
                 if not chunk:
                     break
                 data += chunk
-            
+                
             try:
                 json_data = json.loads(data.decode('utf-8'))
                 print("Received JSON:", json.dumps(json_data, indent=2))
+
                 self.handle_json(json_data)
             except json.JSONDecodeError:
                 print("Error: Received invalid JSON data")
             
-            client_socket.close()
+            self.client_socket.close()
 
     def handle_json(self, json_req: dict):
         # parse json, init ret then decide which method to run: identity -> dest -> instance/transport -> link api -> resource
@@ -155,11 +160,13 @@ class RNSApi:
         
         # init request and reticulum
         action: str = json_req["action"]
-        obj: dict = json_req["obj"]
+        # obj: dict = json_req["obj"]
         
-        # TODO: move to init
         if action == "send":
-            self.identity = RNS.Identity()
+            if not json_req["id"]:
+                print("id in JSON not set.")
+                return
+            self.send_remote(json_req["id"], json_req["obj"])
         
         else:
             print("action in JSON not recongnized.")
@@ -225,29 +232,39 @@ class RNSApi:
             return RNS.Destination.OUT
         else:
             return 0
+        
+    def client_send(self, data):
+        self.client_socket.sendall(data)
     
     # REQUEST HANDLERS
 
-    # handles previously off org members (peers) as well as newly added org members (temp_peers)
-    def handle_new_peer(self, link):
-        # do extra checks, then put peer in hashmap of links, or acknoledging a new group member; 
-        # if new, also starting replication process so new peer can connect to all other peers 
-
-        if self.validate_link(link):
-            self.peer_conns[id] = r_link
+    # def handle_remote(self, data):
+    #     self.peer_conns[id] = link
+    #     remote_json = {'action': 0}
+    #     remote_json['data'] = link
         
+    #     self.client_send(json.dumps(remote_json))
 
+    def handle_remote_new(self, link):
+        remote_json = {'action': 0}
+        remote_json['data'] = link
 
-        pass
-    
-    def handle_reconnect():
-        pass
+        # problem: python won't know if this particular peer will be accepted or not, and with its current thing, it forgets all
+        # links
+        self.client_send(json.dumps(remote_json))
 
-    def handle_disconnect():
-        pass
+    def handle_remote_res_fin(self, resource):
+        remote_json = {'action': 1}
+        remote_json['data'] = resource
 
-    def handle_sync_db():
-        pass
+        self.client_send(json.dumps(remote_json))
+
+    def send_remote(self, remote_id, data):
+        res = RNS.Resource(data, self.peer_conns[remote_id])
+
+        # TODO: add msg back to rust client if res was accepted or not
+        res.advertise()
+
 
     # how handle link:
 
@@ -258,6 +275,7 @@ class RNSApi:
     # reconnect - 
     # will recall identities and dests from disk, then establish links for each peer, putting all links in a hasmap 
 
+    # handles previously off org members (peers) as well as newly added org members (temp_peers)
 
 # consider maintaining as much state as possible in rust, so that only create and updates would be needed here
 if __name__ == "__main__":
