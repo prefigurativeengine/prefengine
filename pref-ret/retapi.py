@@ -62,6 +62,7 @@ import RNS
 import socket
 import json
 import os
+import threading
 
 # TODO: mark private methods
 class RNSApi:
@@ -70,6 +71,7 @@ class RNSApi:
     reconnect_dest: RNS.Destination
     peer_conns: dict[str, RNS.Link]
     client_socket: socket.socket
+    client_lock: threading.Lock
 
     # prefengine for now, should probably be user-input in future
     APP_NAME: str
@@ -86,6 +88,8 @@ class RNSApi:
         ret = RNS.Reticulum(configdir=config_p)
 
         self.identity = RNS.Identity()
+
+        self.client_lock = threading.Lock()
 
         # two sides of the same theoretical endpoint
         self.create_new_peer_dest()
@@ -251,19 +255,26 @@ class RNSApi:
 
         # problem: python won't know if this particular peer will be accepted or not, and with its current thing, it forgets all
         # links
-        self.client_send(json.dumps(remote_json))
+        self.client_send_from_remote_thread(json.dumps(remote_json))
 
     def handle_remote_res_fin(self, resource):
         remote_json = {'action': 1}
         remote_json['data'] = resource
 
-        self.client_send(json.dumps(remote_json))
+        self.client_send_from_remote_thread(json.dumps(remote_json))
 
     def send_remote(self, remote_id, data):
         res = RNS.Resource(data, self.peer_conns[remote_id])
 
         # TODO: add msg back to rust client if res was accepted or not
         res.advertise()
+
+    def client_send_from_remote_thread(self, data):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(('127.0.0.1', 0))
+        s.connect(('127.0.0.1', 3502))
+
+        s.sendall(data)
 
 
     # how handle link:
