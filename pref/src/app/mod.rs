@@ -46,6 +46,12 @@ impl Overlay
             }
         }
 
+        match peer_server::gen_config() {
+            Err(err) => {
+                panic!("UPnP failed: {}", msg);
+            }
+        }
+
         return Overlay {
             discov_result: DiscoveryResult { upnp_enabled: upnp_success },
             external_ip: ext_addr,

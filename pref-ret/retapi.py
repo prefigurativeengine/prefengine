@@ -4,7 +4,7 @@ import json
 import os
 import threading
 
-# TODO: mark private methods
+# TODO: mark private methods, add timeouts, make async
 class RNSApi:
     identity: RNS.Identity
     new_peer_dest: RNS.Destination

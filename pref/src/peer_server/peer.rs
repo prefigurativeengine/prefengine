@@ -107,11 +107,12 @@ pub enum PeerType {
 // TODO: impl all of peer model
 
 
-enum PeerCapability {
+pub enum PeerCapability {
     Desktop,
     Mobile,
     Server,
-    Relay
+    RadioRelay,
+    PtpRelay
 }
 
 enum PeerState {

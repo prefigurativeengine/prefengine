@@ -1,5 +1,5 @@
 use std::net::{self, Ipv4Addr, TcpListener, TcpStream};
-use std::thread; 
+use std::{fs, thread}; 
 
 mod peer;
 use peer::Peer;
@@ -10,6 +10,31 @@ mod connection;
 use crate::peer_server::connection as conn;
 
 use crate::core::{self, *};
+use configparser::ini::Ini;
+
+pub fn gen_config(c_type: peer::PeerCapability, bt: bool, log_level: u32) -> Result<(), String> {
+    // TODO: reticulum only supports hardcoded auth passphrases on file, rust impl needs to make it dynamic and not just based 
+    // off a file
+
+    // Get needed info; c type, available socket interfaces. assumes a tcp interface is connected to internet.
+
+    let mut config = Ini::new();
+    // let config_str = fs::read_to_string("dummyconfig.conf")
+    //     .expect("dummy reticulum config file not found");
+    config.load("dummyconfig.conf")?;
+    
+    match c_type {
+        peer::PeerCapability::Desktop => {
+            config.set("reticulum", "enable_transport", "No");
+            config.set("reticulum", "share_instance", "No");
+        }
+    }
+
+    // TODO: when loglevel is actually implemented for prefengine, make the prefengine loglevel match reticulum's tiers
+    config.set("logging", "loglevel", log_level);
+    
+    
+}
 
 
 pub struct Server {
