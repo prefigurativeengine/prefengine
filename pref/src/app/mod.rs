@@ -7,12 +7,12 @@ use std::str::FromStr;
 use crate::discovery;
 use crate::discovery::{ DiscoveryResult, DiscoveryError, NetError };
 use libp2p::{Multiaddr};
-use std::net::{Ipv4Addr};
+use std::net::{IpAddr, Ipv4Addr};
 
 pub struct Overlay 
 {
     discov_result: DiscoveryResult,
-    external_ip: Ipv4Addr,
+    external_ip: IpAddr,
     server: peer_server::Server
 }
 
@@ -32,9 +32,13 @@ impl Overlay
 
             if let Ok(ip) = discov_res {
                 log::info!("UPnP enabled");
-                ext_addr = Ipv4Addr::from_str(&ip).expect("myexternalip.com failed...");;
+
+                // TODO: make option for ipv6
+                ext_addr = IpAddr::V4(Ipv4Addr::from_str(&ip).expect("myexternalip.com failed...");)
                 upnp_success = true;
-            } else if let Err(err) = discov_res {
+            } 
+            
+            else if let Err(err) = discov_res {
                 match err {
                     DiscoveryError::NetError(msg) => {
                         panic!("Internet request failed: {}", msg);
@@ -46,7 +50,14 @@ impl Overlay
             }
         }
 
-        match peer_server::gen_config() {
+        let self_p = peer_server::PeerInfo::load_self_peer();
+        let using_bt = matches!(self_p.network_space.addr.bt, Some(_));
+        let auth_pass = "test_password";
+
+        match peer_server::gen_config(self_p.capability_type, using_bt, 4, auth_pass, None) {
+            Ok(()) => {
+                log::info!("Initialized reticulum config");
+            } 
             Err(err) => {
                 panic!("UPnP failed: {}", msg);
             }
