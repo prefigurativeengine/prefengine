@@ -9,7 +9,11 @@ class RNSApi:
     identity: RNS.Identity
     new_peer_dest: RNS.Destination
     reconnect_dest: RNS.Destination
+
+    # TODO: peer_conns only uses the parent_id (RNS.Identity in reticulum terminology) to identify device endpoints; 
+    # this will not work when prefengine will have more than one destination that peers can connect to
     peer_conns: dict[str, RNS.Link]
+
     client_socket: socket.socket
     client_lock: threading.Lock
 
@@ -21,13 +25,18 @@ class RNSApi:
 
     RATCHET_PATH: str
 
-    def __init__(self, name, config_p, ratchet_p, peer_ids: list[str]):
+    def __init__(self, name, config_p, ratchet_p, first_start: bool):
         self.APP_NAME = name
         self.RATCHET_PATH = ratchet_p
 
         ret = RNS.Reticulum(configdir=config_p)
         
-        self.identity = RNS.Identity()
+        # TODO: use env variables
+        if first_start:
+            self.identity = RNS.Identity()
+            self.identity.to_file('secretid')
+        else:
+            self.identity = RNS.Identity.from_file('secretid')
 
         self.client_lock = threading.Lock()
 
@@ -90,7 +99,7 @@ class RNSApi:
         # obj: dict = json_req["obj"]
         
         if action == "reconnect"
-            self.reconnect(json_req["id"])
+            self.fo_reconnect(json_req["id"])
         
         if action == "send"
             if not json_req["id"]:
@@ -202,20 +211,24 @@ class RNSApi:
         # TODO: add msg back to rust client if res was accepted or not
         res.advertise()
     
-    def reconnect(self, id: str):
+    def fo_reconnect(self, id):
+        rc_dest_hash = id["child_id_endpoints"][0]
+
         # TODO: check for path exists for remote dest
-        id_obj = RNS.Identity.recall().load_public_key().from_bytes().recall(id)
-        r_dest = RNS.Destination(
-            id_obj,
+        rc_id = RNS.Identity.recall(rc_dest_hash)
+        rc_dest = RNS.Destination(
+            rc_id,
             RNS.Destination.OUT,
             RNS.Destination.SINGLE,
             self.APP_NAME,
         )
 
-        r_link = RNS.Link(r_dest)
-        r_link.set_resource_concluded_callback(self.handle_remote_res_fin)
+        # TODO: somehow make this less intrusive to the devices private key?
+        def identify_self(link):
+            link.identify(self.identity)
 
-        # TODO: be sure to identify after establishing link
+        r_link = RNS.Link(rc_dest, identify_self)
+        r_link.set_resource_concluded_callback(self.handle_remote_res_fin)
 
         self.peer_conns[id] = r_link
 
@@ -254,7 +267,15 @@ class RNSApi:
 
     # handles previously off org members (peers) as well as newly added org members (temp_peers)
 
+import sys
 if __name__ == "__main__":
     # TODO: add platform check for slash here
     config_p = os.getcwd() + "\\" + "retconfig.conf"
-    
+    if len(sys.argv) = 1:
+        
+
+    elif len(sys.argv) = 0:
+        
+    else:
+        
+        sys.exit(1)
