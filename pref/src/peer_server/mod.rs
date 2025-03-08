@@ -12,7 +12,14 @@ use crate::peer_server::connection as conn;
 use crate::core::{self, *};
 use configparser::ini::Ini;
 
-pub fn gen_config(c_type: peer::PeerCapability, bt: bool, log_level: u32, auth_pass: String, ipv6_addr: Option<Ipv6Addr>) -> Result<(), String> {
+const RET_URL: &str = "127.0.0.1:3502";
+
+pub fn gen_config(
+    c_type: peer::PeerCapability, 
+    bt: bool, 
+    log_level: u32, 
+    auth_pass: String, 
+    ipv6_addr: Option<Ipv6Addr>) -> Result<(), String> {
     // Get needed info; c type, available socket interfaces. assumes a tcp interface is connected to internet.
 
     let mut config = Ini::new();
@@ -48,7 +55,8 @@ pub fn gen_config(c_type: peer::PeerCapability, bt: bool, log_level: u32, auth_p
 
 
 pub struct Server {
-    new_peer_listener: net::TcpListener,
+    ret_api_listener: net::TcpListener,
+    ret_api_conn: net::TcpStream,
     peers: Vec<Peer>
 }
 
@@ -72,8 +80,10 @@ pub struct Server {
 impl Server {
     pub fn new(url: String) -> Server {
         let server = Server {
-            new_peer_listener: TcpListener::bind(PREF_PEER_URL)
-                .expect("Could not start the server"),
+            ret_api_listener: TcpListener::bind(PREF_PEER_URL)
+                .expect("Could not start the reticulum listener"),
+            ret_api_conn: TcpStream::connect(RET_URL)
+                .expect("Could not connect to reticulum");
             peers: Vec::new(),
         };
 
@@ -106,7 +116,6 @@ impl Server {
         }
     }
 
-    // TCP only
     fn peer_connect(&mut self, peer: PeerInfo) -> Result<(), &str> {
         if matches!(peer.p_type, PeerType::Local { local_space: _ }) {
             return Err(("Local peer cannot be connected to."))
@@ -117,12 +126,11 @@ impl Server {
                 return Err(("peer_connect not for bluetooth."))
             },
             Some(ip) => {
-                // TODO: run through a list of connection tactics according to values in peerinfo
-                let stm_res = TcpStream::connect(
-                    SocketAddrV4::new(ip, core::PREF_PEER_PORT)
-                );
 
-                match stm_res {
+                // TODO: run through a list of connection tactics according to values in peerinfo
+
+                self.reticulum_send
+                match ret_api_conn {
                     Ok(stm) => {
                         let tcp_conn = connection::TcpConnection::new(peer, stm);
         
@@ -140,6 +148,7 @@ impl Server {
 
                     Err(error) => self.handle_conn_failure(peer)
                 }
+
             }
         }
     }

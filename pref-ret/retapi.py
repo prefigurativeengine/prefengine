@@ -26,7 +26,7 @@ class RNSApi:
         self.RATCHET_PATH = ratchet_p
 
         ret = RNS.Reticulum(configdir=config_p)
-
+        
         self.identity = RNS.Identity()
 
         self.client_lock = threading.Lock()
@@ -37,20 +37,6 @@ class RNSApi:
 
         # create links
         self.new_peer_dest.set_link_established_callback(self.handle_remote)
-
-        for id in peer_ids:
-            # TODO: check for path exists for remote dest
-            id_obj = RNS.Identity.recall(id)
-            r_dest = RNS.Destination(
-                id_obj,
-                RNS.Destination.OUT,
-                RNS.Destination.SINGLE,
-                self.APP_NAME,
-            )
-            r_link = RNS.Link(r_dest)
-            r_link.set_resource_concluded_callback(self.handle_remote_res_fin)
-
-            self.peer_conns[id] = r_link
         
         self.client_listen()
 
@@ -95,27 +81,31 @@ class RNSApi:
             print("action in JSON not a string.")
             return
         
-        if not json_req["obj"]:
-            print("obj in JSON not set.")
-            return
-        
-        elif not isinstance(json_req["obj"], dict):
-            print("obj in JSON not an object.")
+        if not json_req["id"]:
+            print("id in JSON not set.")
             return
         
         # init request and reticulum
         action: str = json_req["action"]
         # obj: dict = json_req["obj"]
         
-        if action == "send":
+        if action == "reconnect"
+            self.reconnect(json_req["id"])
+        
+        if action == "send"
             if not json_req["id"]:
                 print("id in JSON not set.")
                 return
-            self.send_remote(json_req["id"], json_req["obj"])
-        
-        else:
-            print("action in JSON not recongnized.")
-            return
+            
+            if not json_req["change"]:
+                print("change in JSON not set.")
+                return
+            
+            elif not isinstance(json_req["change"], dict):
+                print("change in JSON not an object.")
+                return
+            
+            self.send_remote(json_req["id"], json_req["change"])
 
 
     def create_reconnect_dest(self):
@@ -181,10 +171,11 @@ class RNSApi:
             return 0
         
 
-    def client_send(self, data):
-        self.client_socket.sendall(data)
+    # def client_send(self, data):
+    #     self.client_socket.sendall(data)
     
-    # REQUEST HANDLERS
+    # REMOTE FUNCS
+
 
     def handle_remote_new(self, link: RNS.Link):
         remote_json = {'action': "new_peer"}
@@ -210,6 +201,23 @@ class RNSApi:
 
         # TODO: add msg back to rust client if res was accepted or not
         res.advertise()
+    
+    def reconnect(self, id: str):
+        # TODO: check for path exists for remote dest
+        id_obj = RNS.Identity.recall().load_public_key().from_bytes().recall(id)
+        r_dest = RNS.Destination(
+            id_obj,
+            RNS.Destination.OUT,
+            RNS.Destination.SINGLE,
+            self.APP_NAME,
+        )
+
+        r_link = RNS.Link(r_dest)
+        r_link.set_resource_concluded_callback(self.handle_remote_res_fin)
+
+        # TODO: be sure to identify after establishing link
+
+        self.peer_conns[id] = r_link
 
 
     def client_send_from_remote_thread(self, data, recv_after=False):

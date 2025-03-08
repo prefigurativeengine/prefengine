@@ -1,5 +1,12 @@
 {
     // get what ret consumes of pref model
     // syncdb msg for now
-    
+    "id" : "value",
+    "change" : {
+        "entity" : "value",
+        "kv_changes" : {
+            "key":"value",
+            "key":"value",
+        }
+    }
 }

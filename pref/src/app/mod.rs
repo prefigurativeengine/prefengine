@@ -1,6 +1,7 @@
 use crate::{core, peer_server};
 
 use std::env;
+use std::os::windows::io::AsHandle;
 use std::path::Path;
 use std::fs;
 use std::str::FromStr;
@@ -8,12 +9,14 @@ use crate::discovery;
 use crate::discovery::{ DiscoveryResult, DiscoveryError, NetError };
 use libp2p::{Multiaddr};
 use std::net::{IpAddr, Ipv4Addr};
+use std::process::{Command, Child};
 
 pub struct Overlay 
 {
     discov_result: DiscoveryResult,
     external_ip: IpAddr,
-    server: peer_server::Server
+    server: peer_server::Server,
+    ret_process: Child
 }
 
 impl Overlay 
@@ -63,10 +66,19 @@ impl Overlay
             }
         }
 
+        
+
+        let ret = Command::new("python")
+            .args(["retapi.py"])
+            .spawn()
+            .expect("failed to execute retapi.py");
+
+        
+
         return Overlay {
             discov_result: DiscoveryResult { upnp_enabled: upnp_success },
             external_ip: ext_addr,
-            
+            ret_process: ret
         };
     }
 

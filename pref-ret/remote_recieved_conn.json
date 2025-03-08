@@ -1,5 +1,10 @@
 {
     // get what ret consumes of pref model
     // ptp conn aspects of ret-link
-
+    "id" : "value",
+    "ptp_conn": {
+        "msg_readiness": 0,
+        "signal_quality": 0,
+        "physical_type": "value",
+    }
 }
