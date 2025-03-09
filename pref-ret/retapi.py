@@ -16,11 +16,12 @@ class RNSApi:
 
     client_socket: socket.socket
     APP_NAME: str
+    ret_instance: RNS.Reticulum
 
     def __init__(self, name, config_p, first_start: bool):
         self.APP_NAME = name
 
-        ret = RNS.Reticulum(configdir=config_p)
+        self.ret_instance = RNS.Reticulum(configdir=config_p)
         
         # TODO: use env variables
         if first_start:
