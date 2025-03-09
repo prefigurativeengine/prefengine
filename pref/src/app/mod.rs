@@ -1,10 +1,12 @@
 use crate::{core, peer_server};
 
 use std::env;
+use std::io::Read;
 use std::os::windows::io::AsHandle;
 use std::path::Path;
 use std::fs;
 use std::str::FromStr;
+use std::thread::sleep;
 use crate::discovery;
 use crate::discovery::{ DiscoveryResult, DiscoveryError, NetError };
 use libp2p::{Multiaddr};
@@ -26,6 +28,7 @@ impl Overlay
         core::pref_log::init_styled_logger();
         log::info!("Initialized log");
         
+        // TODO: make this not mut
         let mut ext_addr = Ipv4Addr::from_str("127.0.0.1").expect("no");
         let mut upnp_success = false;
         let first_start = Overlay::is_first_time();
@@ -66,13 +69,37 @@ impl Overlay
             }
         }
 
-        
-        // TODO: add in arguments for first start up
+        let args = {
+            if first_start {
+                vec!["retapi.py", "first_start"]
+            } else {
+                vec!["retapi.py"]
+            }
+        }
+
         let ret = Command::new("python")
-            .args(["retapi.py"])
+            .args(args)
             .spawn()
             .expect("failed to execute retapi.py");
 
+        // TODO: make timeout
+        loop {
+            match ret.stdout.take() {
+                Some(retout) => {
+                    let mut buffer = String::new();
+                    let res = retout.read_to_string(buffer)
+                        .expect("failed to read first stdout from retapi.py");
+
+                    if buffer.starts_with("Server listening") {
+                        log::info!("Recieved Reticulum API listening message");
+                        break;
+                    }
+                }
+                None => {
+                    sleep(time::Duration::from_millis(500));
+                }
+            }
+        }
         
 
         return Overlay {

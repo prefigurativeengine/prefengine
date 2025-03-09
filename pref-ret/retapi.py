@@ -45,7 +45,7 @@ class RNSApi:
         print(f"Server listening on {host}:{port}")
         while True:
             self.client_socket, addr = server_socket.accept()
-
+            
             data = b''
             while True:
                 chunk = self.client_socket.recv(1024)
@@ -59,7 +59,7 @@ class RNSApi:
 
                 self.handle_json(json_data)
             except json.JSONDecodeError:
-                print("Error: Received invalid JSON data")
+                print("Error: Received invalid JSON data", sys.stderr)
             
             self.client_socket.close()
 
@@ -102,7 +102,6 @@ class RNSApi:
 
     def create_reconnect_dest(self):
         if not self.identity:
-            print("destination was called, but identity has not been set.")
             return
         
         self.reconnect_dest = RNS.Destination(
@@ -121,7 +120,6 @@ class RNSApi:
 
     def create_new_peer_dest(self):
         if not self.identity:
-            print("destination was called, but identity has not been set.")
             return
         
         self.new_peer_dest = RNS.Destination(

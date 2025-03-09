@@ -128,8 +128,9 @@ impl Server {
             Some(ip) => {
 
                 // TODO: run through a list of connection tactics according to values in peerinfo
-
-                self.reticulum_send
+                
+                // fo_reconnect
+                self.ret_send()
                 match ret_api_conn {
                     Ok(stm) => {
                         let tcp_conn = connection::TcpConnection::new(peer, stm);
@@ -153,8 +154,9 @@ impl Server {
         }
     }
 
-    fn peer_send(&self) {
-        
+    fn ret_send(&self, remote_id: &str, data: Option<String>) {
+
+        self.ret_api_conn.write(data);
     }
 
     fn peer_listen(&self) {
