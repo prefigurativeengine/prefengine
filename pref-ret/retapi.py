@@ -55,7 +55,6 @@ class RNSApi:
                 
             try:
                 json_data = json.loads(data.decode('utf-8'))
-                print("Received JSON:", json.dumps(json_data, indent=2))
 
                 # TODO: send info on remote send success or failure
                 self.handle_json(json_data)
@@ -129,7 +128,7 @@ class RNSApi:
         )
 
         # TODO: test the computational and bandwidth cost of proving all 
-        self.new_peer_dest.set_proof_strategy(RNS.new_peer_destination.PROVE_ALL)
+        self.new_peer_dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
 
         # self.new_peer_dest.enable_ratchets(self.RATCHET_PATH)
         # self.new_peer_dest.enforce_ratchets()
@@ -142,8 +141,10 @@ class RNSApi:
         remote_json = {'action': "new_peer"}
         remote_json['data'] = link
 
+        n_dto = self.convert_to_recieved_conn(link)
+
         # rust will make sure this destination is actually apart of the group
-        resp = self.client_send_from_remote_thread(json.dumps(remote_json), True)
+        resp = self.client_send_from_remote_thread(n_dto, True)
 
         # only put in conn dict if a valid peer
         if resp["accepted"] == 0:
@@ -155,6 +156,8 @@ class RNSApi:
                 if get_id_result == None:
                     continue
                 else:
+                    # TODO: use accept_app
+                    link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
                     link.set_resource_concluded_callback(self.handle_remote_res_fin)
 
                     # TODO: send another req to rust to save parent id (to also confirm 
@@ -167,11 +170,13 @@ class RNSApi:
             link.teardown()
 
 
-    def handle_remote_res_fin(self, resource):
+    def handle_remote_res_fin(self, resource: RNS.Resource):
         remote_json = {'action': "res_fin"}
         remote_json['data'] = resource
 
-        self.client_send_from_remote_thread(json.dumps(remote_json))
+        r_dto = self.convert_to_recieved_data(resource.data.read())
+        
+        self.client_send_from_remote_thread(r_dto)
 
 
     def send_remote_res(self, remote_id, data):
@@ -198,6 +203,8 @@ class RNSApi:
             link.identify(self.identity)
 
         r_link = RNS.Link(rc_dest, identify_self)
+
+        r_link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
         r_link.set_resource_concluded_callback(self.handle_remote_res_fin)
 
         self.peer_conns[id] = r_link
@@ -224,6 +231,14 @@ class RNSApi:
                 break
             data += chunk
         return json.loads(data.decode('utf-8'))
+    
+    def convert_to_recieved_conn(link: RNS.Link):
+        pass
+
+    def convert_to_recieved_data(data: bytes):
+        pass
+
+
 
 
 import sys
