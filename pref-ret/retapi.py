@@ -44,7 +44,7 @@ class RNSApi:
 
         print(f"Server listening on {host}:{port}")
         while True:
-            self.client_socket, addr = server_socket.accept()
+            self.client_socket, _ = server_socket.accept()
             
             data = b''
             while True:
@@ -57,12 +57,11 @@ class RNSApi:
                 json_data = json.loads(data.decode('utf-8'))
                 print("Received JSON:", json.dumps(json_data, indent=2))
 
+                # TODO: send info on remote send success or failure
                 self.handle_json(json_data)
             except json.JSONDecodeError:
                 print("Error: Received invalid JSON data", sys.stderr)
             
-            self.client_socket.close()
-
 
     def handle_json(self, json_req: dict):
         # validate
@@ -158,6 +157,8 @@ class RNSApi:
                 else:
                     link.set_resource_concluded_callback(self.handle_remote_res_fin)
 
+                    # TODO: send another req to rust to save parent id (to also confirm 
+                    # the identity is also apart of the group) 
                     pub_key = get_id_result.get_public_key()
                     self.peer_conns[str(pub_key)] = link
                     break
@@ -205,7 +206,7 @@ class RNSApi:
     def client_send_from_remote_thread(self, data, recv_after=False):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('127.0.0.1', 0))
-        s.connect(('127.0.0.1', 3502))
+        s.connect(('127.0.0.1', 3501))
 
         s.sendall(data)
 

@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+use std::error::Error;
+use std::io::{Read, Write};
 use std::net::{self, Ipv4Addr, Ipv6Addr, TcpListener, TcpStream};
 use std::{fs, thread}; 
 
 mod peer;
 use peer::Peer;
+use serde::Serialize;
 
 use crate::peer_server::peer::{self, *};
 
@@ -13,6 +17,7 @@ use crate::core::{self, *};
 use configparser::ini::Ini;
 
 const RET_URL: &str = "127.0.0.1:3502";
+const PREF_URL: &str = "127.0.0.1:3501";
 
 pub fn gen_config(
     c_type: peer::PeerCapability, 
@@ -60,27 +65,13 @@ pub struct Server {
     peers: Vec<Peer>
 }
 
-/*
-
-1. move lisener out of spawn
-2. remove unneeded
-3. decide on ref types
-4. do rmov process on on_client_connect
-
-*/
-
-/*
-
-1. peer starts, initiating bi-d connections to group members
-2. peer then starts listening for newly online members
-
-*/
-
+const FO_RECONNECT_ACTION: &str = "fo_reconnect";
+const SEND_ACTION: &str = "send";
 
 impl Server {
     pub fn new(url: String) -> Server {
         let server = Server {
-            ret_api_listener: TcpListener::bind(PREF_PEER_URL)
+            ret_api_listener: TcpListener::bind(PREF_URL)
                 .expect("Could not start the reticulum listener"),
             ret_api_conn: TcpStream::connect(RET_URL)
                 .expect("Could not connect to reticulum");
@@ -92,22 +83,21 @@ impl Server {
 
     pub fn start(&self) {
         self.peer_connect_all();
-        self.peer_listen();
+        thread::spawn(self.ret_listen);
     }
 
-
-    fn try_traversal_methods() {
-
-    }
-
-    fn handle_conn_failure() {
-
-    }
-
-    fn peer_connect_all(&mut self) -> Result<(), String> {
+    fn peer_connect_all(&self) -> Result<(), String> {
         if let Ok(peers) = PeerInfo::load_remote_peers() {
             for peer in peers {
-                self.peer_connect(peer);
+                match self.peer_connect(peer) {
+                    Ok(()) => {
+                        log::info!("Sent reconnect msg to reverse proxy for {}", peer.id.parent_id);
+                    },
+        
+                    Err(error_s) => {
+                        log::error!("Failed to send reconnect msg: {}", error_s);
+                    }
+                }
             }
             return Ok(());
         }
@@ -116,58 +106,72 @@ impl Server {
         }
     }
 
-    fn peer_connect(&mut self, peer: PeerInfo) -> Result<(), &str> {
+    fn peer_connect(&self, peer: PeerInfo) -> Result<usize, std::io::Error> {
         if matches!(peer.p_type, PeerType::Local { local_space: _ }) {
             return Err(("Local peer cannot be connected to."))
         }
         
-        match peer.network_space.addr.ip {
-            None => {
-                return Err(("peer_connect not for bluetooth."))
-            },
-            Some(ip) => {
+        // TODO: run through a list of connection tactics according to values in peerinfo    
+        let json_s = format_for_ret(peer.id.parent_id, FO_RECONNECT_ACTION, None);
+        let res = self.ret_send(json_s);
+        return res;
+    }
 
-                // TODO: run through a list of connection tactics according to values in peerinfo
-                
-                // fo_reconnect
-                self.ret_send()
-                match ret_api_conn {
-                    Ok(stm) => {
-                        let tcp_conn = connection::TcpConnection::new(peer, stm);
+    fn format_for_ret(id: String, action: String, data: Option<HashMap<String, String>>) -> String {
+        let hm_dto: HashMap<String, String> = HashMap::new();
+
+        hm_dto.insert("id".to_owned(), id.clone());
+        hm_dto.insert("action".to_owned(), action.clone());
         
-                        // TODO: impl communication of state
-                        let dummy_state = PeerState::Active;
-        
-                        self.peers.push(
-                            Peer {
-                                state: dummy_state,
-                                connection: tcp_conn,
-                                info: peer
+        if matches!(data, Some(_)) {
+            hm_dto.extend(data.unwrap());
+        }
+
+        return serde_json::to_string(hm_dto);
+    }
+
+    fn ret_send(&self, data: String) -> Result<usize, std::io::Error> {
+        return self.ret_api_conn.write(data.as_bytes());
+    }
+
+    use serde_json::{Result, Value};
+    fn ret_listen(&self) {
+        for stream in self.ret_api_listener.incoming() {
+            match stream {
+                Ok(stream) => {
+                    let buf = String::new();
+
+                    match stream.read_to_string(buf) {
+                        Ok(usize) => {
+                            let serde_res: Result<HashMap<String, Value>, Error> = serde_json::from_str(s);
+                            if matches!(serde_res, Some(_)) {
+                                self.dispatch_ret_resp(serde_res.unwrap());
+                            } else {
+                                log::error!("Failed to decode ret proxy message into json: {}", serde_res.unwrap());
                             }
-                        );
-                    },
+                        }
 
-                    Err(error) => self.handle_conn_failure(peer)
-                }
-
+                        Err(err) => {
+                            log::error!("Failed to decode ret proxy message: {}", err);
+                        }
+                    }
+                },
+                Err(error_s) => log::error!("Error when tried to use stream: {}", error_s),
             }
         }
     }
 
-    fn ret_send(&self, remote_id: &str, data: Option<String>) {
-
-        self.ret_api_conn.write(data);
-    }
-
-    fn peer_listen(&self) {
-        thread::spawn(|| {
-            for stream in self.new_peer_listener.incoming() {
-                match stream {
-                    Ok(stream) => self.on_new_peer_connect(stream),
-                    Err(error) => eprintln!("Error when tried to use stream"),
+    fn dispatch_ret_resp(resp: HashMap<String, Value>) {
+        match resp.get("value") {
+            "new_peer" => {
+                if self.check_peer_req(resp) {
+                    self.add_peer(resp);
                 }
             }
-        });
+            "res_fin" => {
+                self.sync_db(resp);
+            }
+        }
     }
     
     fn on_new_peer_connect(&self, stream: TcpStream) {
@@ -182,4 +186,13 @@ impl Server {
             // if valid, add as connection and update ip addr
         }
     }
+
+    fn try_traversal_methods() {
+
+    }
+
+    fn handle_conn_failure() {
+
+    }
+
 }

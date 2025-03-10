@@ -17,9 +17,15 @@ pub struct Peer {
 
 
 pub struct PeerInfo {
+    pub id: PeerId
     pub p_type: PeerType,
     pub network_space: NetworkSide, 
     capability_type: PeerCapability
+}
+
+pub struct PeerId {
+    pub parent_id: String,
+    pub child_dest_id: String
 }
 
 use crate::core::dir;
@@ -186,4 +192,3 @@ struct PeerAddress {
     bt: Option<String>
 }
 
-std::net::
