@@ -173,6 +173,23 @@ impl Server {
             }
         }
     }
+
+    fn check_peer_req(&self, resp: HashMap<String, Value>) -> bool {
+        for peer in self.peers {
+            if peer.info.id.child_dest_id == resp.get("id") {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    fn add_peer(resp: HashMap<String, Value>) {
+        
+    }
+
+    fn sync_db(resp: HashMap<String, Value>) {
+
+    }
     
     fn on_new_peer_connect(&self, stream: TcpStream) {
         // check if a valid ip addr
