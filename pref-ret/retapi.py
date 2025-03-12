@@ -149,7 +149,7 @@ class RNSApi:
         # only put in conn dict if a valid peer
         if resp["accepted"] == 0:
 
-            # TODO: add timeout
+            # TODO: use remote identified callback here..
             while True:
                 get_id_result = link.get_remote_identity()
 
@@ -172,11 +172,11 @@ class RNSApi:
 
     def handle_remote_res_fin(self, resource: RNS.Resource):
         remote_json = {'action': "res_fin"}
-        remote_json['data'] = resource
-
-        r_dto = self.convert_to_recieved_data(resource.data.read())
         
-        self.client_send_from_remote_thread(r_dto)
+        r_data = str(resource.data.read(), encoding='utf-8')
+        remote_json['data'] = r_data
+
+        self.client_send_from_remote_thread(r_data)
 
 
     def send_remote_res(self, remote_id, data):
@@ -233,10 +233,20 @@ class RNSApi:
         return json.loads(data.decode('utf-8'))
     
     def convert_to_recieved_conn(link: RNS.Link):
-        pass
+        rssi = link.get_rssi()
+        if not rssi:
+            rssi = 0
+        
+        json_d = {
+            "id": {
+                "child_id_endpoints": link.destination.hash
+            },
+            "ptp_conn": {
+                "physical_type": "tcp",
+            }
+        }
 
-    def convert_to_recieved_data(data: bytes):
-        pass
+        return json.dumps(json_d)
 
 
 
