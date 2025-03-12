@@ -62,7 +62,7 @@ pub fn gen_config(
 pub struct Server {
     ret_api_listener: net::TcpListener,
     ret_api_conn: net::TcpStream,
-    peers: Vec<Peer>
+    peers: Vec<Peer>,
 }
 
 const FO_RECONNECT_ACTION: &str = "fo_reconnect";
@@ -175,7 +175,7 @@ impl Server {
     }
 
     fn check_peer_req(&self, resp: HashMap<String, Value>) -> bool {
-        for peer in self.peers {
+        for peer in self.get_disconnected_peers() {
             if peer.info.id.child_dest_id == resp.get("id") {
                 return true;
             }
@@ -183,12 +183,58 @@ impl Server {
         return false;
     }
 
-    fn add_peer(resp: HashMap<String, Value>) {
+    // assumes resp is a known peer
+    fn add_peer(&self, new_peer: HashMap<String, Value>) {
+        // add to runtime list
+        for p_info in self.get_disconn_peers() {
+            if p_info.id.child_dest_id == new_peer.get("id") {
+                let p = Peer::new(p_info)
+                self.peers.push(p);
+            }
+        }
+        
+        // add to persistant peers if new
         
     }
 
     fn sync_db(resp: HashMap<String, Value>) {
 
+    }
+
+    fn get_disconn_peers(&self) -> Result<Vec<PeerInfo>, String> {
+        let disk_peer_res: Result<Vec<PeerInfo>, String> = PeerInfo::load_remote_peers();
+        match disk_peer_res {
+            Ok(d_peers) => {
+                Ok(self.filter_pinfo_for_disconn(d_peers));
+            }
+            Err(msg) => {
+                log::error!(msg);
+                Err(("Failed to get remote peers from disk"));
+            }
+        }
+    }
+
+    fn filter_pinfo_for_disconnected(self, p_infos: &Vec<PeerInfo>) -> Vec<PeerInfo> {
+        let mut disconn_peers = vec![];
+
+        for peer_info in p_infos {
+            // brute forcing, but peers in a given overlay have upper limit of 150
+
+            let current_id = peer_info.info.id.parent_id;
+            let found: bool;
+
+            for online_peer in self.peers {
+                if current_id == online_peer.id.parent_id {
+                    found = true;
+                }
+            }
+
+            if !found {
+                disconn_peers.push(value);
+            }
+        }
+        
+        return disconn_peers;
     }
     
     fn on_new_peer_connect(&self, stream: TcpStream) {

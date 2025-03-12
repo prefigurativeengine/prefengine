@@ -1,10 +1,19 @@
 
 use crate::peer_server::connection;
 
+// TODO: seperate mutable network info from peerinfo
 pub struct Peer {
     pub state: PeerState,
-    pub connection: connection::TcpConnection,
     pub info: PeerInfo
+}
+
+impl Peer {
+    pub fn new(param_info: PeerInfo) -> Peer {
+        Peer {
+            state: PeerState::Active,
+            info: param_info
+        }
+    }
 }
 
 // pub struct RemotePeerInfo {
