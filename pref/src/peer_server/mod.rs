@@ -13,6 +13,9 @@ use crate::peer_server::peer::{self, *};
 mod connection;
 use crate::peer_server::connection as conn;
 
+mod db;
+use crate::peer_server::db as peer_db;
+
 use crate::core::{self, *};
 use configparser::ini::Ini;
 
@@ -169,7 +172,7 @@ impl Server {
                 }
             }
             "res_fin" => {
-                self.sync_db(resp);
+                self.recieved_db_change(resp);
             }
         }
     }
@@ -240,10 +243,14 @@ impl Server {
         return disconn_peers;
     }
 
-    fn sync_db(resp: HashMap<String, Value>) {
+    fn recieved_db_change(resp: HashMap<String, Value>) {
 
     }
-    
+
+    fn send_db_change(resp: HashMap<String, Value>) {
+
+    }
+
     
     fn on_new_peer_connect(&self, stream: TcpStream) {
         // check if a valid ip addr
