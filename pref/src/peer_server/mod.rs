@@ -184,21 +184,24 @@ impl Server {
     }
 
     // assumes resp is a known peer
-    fn add_peer(&self, new_peer: HashMap<String, Value>) {
+    fn add_peer(&self, new_peer: HashMap<String, Value>) -> Result<(), String> {
         // add to runtime list
-        for p_info in self.get_disconn_peers() {
+        let new_p: Peer;
+        
+        let disconn_peers_res: Result<Vec<PeerInfo>, String> = self.get_disconn_peers();
+        if disconn_peers_res.is_err() {
+            return Err("Getting disconnected peers failed");
+        }
+
+        for p_info in disconn_peers_res.unwrap() {
             if p_info.id.child_dest_id == new_peer.get("id") {
-                let p = Peer::new(p_info)
+                new_p = Peer::new(p_info);
                 self.peers.push(p);
             }
         }
         
         // add to persistant peers if new
-        
-    }
-
-    fn sync_db(resp: HashMap<String, Value>) {
-
+        PeerInfo::append_peers_to_disk(vec![new_p]);
     }
 
     fn get_disconn_peers(&self) -> Result<Vec<PeerInfo>, String> {
@@ -236,6 +239,11 @@ impl Server {
         
         return disconn_peers;
     }
+
+    fn sync_db(resp: HashMap<String, Value>) {
+
+    }
+    
     
     fn on_new_peer_connect(&self, stream: TcpStream) {
         // check if a valid ip addr

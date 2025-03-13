@@ -79,7 +79,7 @@ impl PeerInfo {
     {
         if (path::Path::new(&peer_path).exists()) {
             /* 
-            TODO: impl file parsing
+            TODO: unhack this
 
             let peer_json = fs::read_to_string(peer_path);
 
@@ -114,47 +114,47 @@ impl PeerInfo {
     }
 
 
+    fn append_peers_to_disk(new_peers: Vec<PeerInfo>) -> Result<(), String>  {
+        let peer_path_res = dir::get_root_file_path("peers.json");
+        match peer_path_res {
+            Ok(peer_path) => {
+                let peer_json_r = fs::read_to_string(peer_path);
+                if peer_json_r.is_err() {
+                    return peer_json_r;
+                }
+                let json_array: Vec<PeerInfo> = serde_json::from_str(&peer_json_r.unwrap());
+                json_array.extend(new_peers);
+
+                fs::write(peer_path, serde_json::to_string(json_array));
+            }
+            Err((msg)) => {
+                log::error!(msg);
+                Err(("Failed to get remote peers from disk"));
+            }
+        }
+    }
+
+
     fn get_peers_from_disk(peer_path: PathBuf) -> Result<Vec<PeerInfo>, String> 
     {
         if (path::Path::new(&peer_path).exists()) {
-            /* 
-            TODO: impl file parsing
-
             let peer_json = fs::read_to_string(peer_path);
-
-            if (peer_json.is_empty()) {
-                return None;
-            }
 
             let json_array: Vec<PeerInfo> =
                 serde_json::from_str(&peer_json).expect("peers JSON was not well-formatted");
-            
-            let mut disk_peers = vec![];
 
-            for value in json_array
-            {
-                let sp = PeerInfo {
-                    id: value.id,
-                    addr: value.addr,
-                    public_key: PublicKey((ssb_id::SSB_NET_ID)),
-                };
+            // let pi1 = PeerInfo {
+            //     p_type: PeerType::Remote,
+            //     network_space: NetworkSide {
+            //         addr: PeerAddress {
+            //             ip: Some(IpAddr::V4(Ipv4Addr::from_str("s").expect("msg")),
+            //             bt: None
+            //         }
+            //     },
+            //     capability_type: PeerCapability::Desktop,
+            // };
 
-                disk_peers.push(sp);
-            }
-            */
-
-            let pi1 = PeerInfo {
-                p_type: PeerType::Remote,
-                network_space: NetworkSide {
-                    addr: PeerAddress {
-                        ip: Some(IpAddr::V4(Ipv4Addr::from_str("s").expect("msg")),
-                        bt: None
-                    }
-                },
-                capability_type: PeerCapability::Desktop,
-            };
-
-            return Ok(vec![pi1]);
+            return Ok(json_array);
         }
 
         else {
