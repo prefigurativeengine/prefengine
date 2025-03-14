@@ -14,15 +14,57 @@ not touched, for now
 
 */
 
+const text_change_size_limit: u32 = 50000;
 
-
-pub fn process_remote_change(changes: HashMap<String, Value>) {
+pub fn process_remote_change(changes: String) -> Result<(), String> {
     // validate and checks
+    
+    if let Err(err) = netspace_validate(&changes).is_err() {
+        Err((err))
+    }
+
+    if let Err(err) = localspace_validate(&changes).is_err() {
+        Err((err))
+    }
 
     // send success or err msg of above to initiator
+    let overlay_confirmation_res: bool;
+    if initiator_confirm {
+        overlay_confirmation_res = initiator_confirm(&changes);
+    } else {
+        overlay_confirmation_res = peer_confirm(&changes);
+    }
 
     // when all succeed msg recieved, push changes to disk
+    if overlay_confirmation_res {
+        push_to_sql();
+    }
 }
+
+fn netspace_validate(msg: String) -> Result<(), String> {
+    /*
+    iniatior visibility
+    size check (involving peer bandwidth check)
+    &HashMap<
+    */
+
+    if 
+    /* 
+    lexical
+    syntax
+    semantics (involving matching procedure config check)
+    */
+}
+
+fn localspace_validate(msg: &HashMap<String, Value>) -> Result<(), String> {
+    /*
+    semantics (involving consistent changelog check)
+    */
+}
+
+
+
+
 
 
 pub fn process_local_change() {

@@ -142,16 +142,11 @@ impl Server {
         for stream in self.ret_api_listener.incoming() {
             match stream {
                 Ok(stream) => {
-                    let buf = String::new();
+                    let mut buf = String::new();
 
                     match stream.read_to_string(buf) {
                         Ok(usize) => {
-                            let serde_res: Result<HashMap<String, Value>, Error> = serde_json::from_str(s);
-                            if matches!(serde_res, Some(_)) {
-                                self.dispatch_ret_resp(serde_res.unwrap());
-                            } else {
-                                log::error!("Failed to decode ret proxy message into json: {}", serde_res.unwrap());
-                            }
+                            self.dispatch_ret_resp(buf);
                         }
 
                         Err(err) => {
@@ -164,11 +159,19 @@ impl Server {
         }
     }
 
-    fn dispatch_ret_resp(resp: HashMap<String, Value>) {
+    fn dispatch_ret_resp(resp: String) -> Result<(), String> {
+        // TODO_IMMEDIATE: change this to check if starts with {'action': "res_fin" 
         match resp.get("value") {
             "new_peer" => {
-                if self.check_peer_req(resp) {
-                    self.add_peer(resp);
+                let serde_res: Result<HashMap<String, Value>, Error> = serde_json::from_str(resp);
+                if matches!(serde_res, Some(_)) {
+                    let serde_j = serde_res.unwrap();
+                    if self.check_peer_req(serde_j) {
+                        self.add_peer(serde_j);
+                    }
+                } else {
+                    log::error!("Failed to decode ret proxy message into json: {}", serde_res.unwrap());
+                    Err("Failed to decode ret proxy message into json".to_owned())
                 }
             }
             "res_fin" => {
