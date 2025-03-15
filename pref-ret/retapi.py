@@ -171,7 +171,7 @@ class RNSApi:
 
 
     def handle_remote_res_fin(self, resource: RNS.Resource):
-        remote_json = {'action': "res_fin"}
+        remote_json = {'action': "resc_fin"}
         
         r_data = str(resource.data.read(), encoding='utf-8')
         remote_json['data'] = r_data

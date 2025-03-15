@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io::{Read, Write};
 use std::net::{self, Ipv4Addr, Ipv6Addr, TcpListener, TcpStream};
+use std::ops::Index;
 use std::{fs, thread}; 
 
 mod peer;
@@ -160,9 +161,12 @@ impl Server {
     }
 
     fn dispatch_ret_resp(resp: String) -> Result<(), String> {
-        // TODO_IMMEDIATE: change this to check if starts with {'action': "res_fin" 
-        match resp.get("value") {
-            "new_peer" => {
+        // HACK
+        let new_peer = "{""action"":""new_peer";
+        let resc_fin = "{""action"":""resc_fin";
+
+        match &resp[0..19]; {
+            new_peer => {
                 let serde_res: Result<HashMap<String, Value>, Error> = serde_json::from_str(resp);
                 if matches!(serde_res, Some(_)) {
                     let serde_j = serde_res.unwrap();
@@ -174,7 +178,7 @@ impl Server {
                     Err("Failed to decode ret proxy message into json".to_owned())
                 }
             }
-            "res_fin" => {
+            resc_fin => {
                 self.recieved_db_change(resp);
             }
         }
