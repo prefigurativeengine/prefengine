@@ -101,11 +101,13 @@ impl Overlay
             }
         }
         
+        let server_inst = peer_server::Server::new();
 
         return Overlay {
             discov_result: DiscoveryResult { upnp_enabled: upnp_success },
             external_ip: ext_addr,
-            ret_process: ret
+            ret_process: ret,
+            server: server_inst
         };
     }
 

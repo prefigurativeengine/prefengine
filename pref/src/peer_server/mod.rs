@@ -8,6 +8,7 @@ use std::{fs, thread};
 mod peer;
 use peer::Peer;
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::peer_server::peer::{self, *};
 
@@ -73,7 +74,7 @@ const FO_RECONNECT_ACTION: &str = "fo_reconnect";
 const SEND_ACTION: &str = "send";
 
 impl Server {
-    pub fn new(url: String) -> Server {
+    pub fn new() -> Server {
         let server = Server {
             ret_api_listener: TcpListener::bind(PREF_URL)
                 .expect("Could not start the reticulum listener"),
@@ -88,6 +89,15 @@ impl Server {
     pub fn start(&self) {
         self.peer_connect_all();
         thread::spawn(self.ret_listen);
+    }
+
+    pub fn send_db_change(&mut self, change: String) {
+        let mut change_map = HashMap::new();
+        change_map.insert("action".to_owned(), "send".to_owned());
+        change_map.insert("change".to_owned(), change);
+
+        let json_s = self.format_for_ret(None, SEND_ACTION, Some(change_map));
+        self.ret_send(json_s);
     }
 
     fn peer_connect_all(&self) -> Result<(), String> {
@@ -116,16 +126,19 @@ impl Server {
         }
         
         // TODO: run through a list of connection tactics according to values in peerinfo    
-        let json_s = format_for_ret(peer.id.parent_id, FO_RECONNECT_ACTION, None);
+        let json_s = format_for_ret(Some(peer.id.parent_id), FO_RECONNECT_ACTION, None);
         let res = self.ret_send(json_s);
         return res;
     }
 
-    fn format_for_ret(id: String, action: String, data: Option<HashMap<String, String>>) -> String {
-        let hm_dto: HashMap<String, String> = HashMap::new();
+    fn format_for_ret(id: Option<String>, action: String, data: Option<HashMap<String, String>>) -> String {
+        let mut hm_dto: HashMap<String, String> = HashMap::new();
 
-        hm_dto.insert("id".to_owned(), id.clone());
-        hm_dto.insert("action".to_owned(), action.clone());
+        if let Some(id_val) = id {
+            hm_dto.insert("id".to_owned(), id_val);
+        }
+        
+        hm_dto.insert("action".to_owned(), action);
         
         if matches!(data, Some(_)) {
             hm_dto.extend(data.unwrap());
@@ -179,7 +192,7 @@ impl Server {
                 }
             }
             resc_fin => {
-                self.recieved_db_change(resp);
+                peer_db::process_remote_change(resp);
             }
         }
     }
@@ -250,15 +263,6 @@ impl Server {
         return disconn_peers;
     }
 
-    fn recieved_db_change(resp: HashMap<String, Value>) {
-
-    }
-
-    fn send_db_change(resp: HashMap<String, Value>) {
-
-    }
-
-    
     fn on_new_peer_connect(&self, stream: TcpStream) {
         // check if a valid ip addr
         if self.valid_peer_addrs.contains(stream.peer_addr()) {
