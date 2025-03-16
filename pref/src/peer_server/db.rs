@@ -16,74 +16,106 @@ not touched, for now
 
 const INITIATOR_CONFIRM: bool = true;
 
+use crate::core::dir;
+use crate::peer_server::Server;
+
+enum FailedReason {
+    IncorrectVisibility,
+    MsgMalformed,
+    MsgTooBig
+}
+
+pub fn process_local_change(changes: String, server: &mut Server) -> Result<(), String> {
+    let mut fail_reason: Option<FailedReason> = None;
+    validate_local_chg(&changes, fail_reason);
+
+    if let Err(err) = send_chg_to_overlay(&changes, server) {
+        Err(err)
+    }
+    
+    let overlay_confirmation_res = listen_for_confirm_fin();
+    if overlay_confirmation_res.is_ok() {
+        append_chg(changes)
+    }
+    overlay_confirmation_res
+}
+
+fn send_chg_to_overlay(chg: &str, server: &mut Server) -> Result<(), String> {
+    server.send_db_change(chg);
+}
+
+fn listen_for_confirm_fin() -> Result<(), String> {
+    // wait for thread channel message, return result
+    Ok(())
+}
+
+fn on_confirm_fin() -> Result<(), String> {
+    // callback called from server listener thread
+    Ok(())
+}
+
 // TODO: validations and confirms not implemented yet
 pub fn process_remote_change(changes: String) -> Result<(), String> {
     // validate and checks
     
-    let validated_map_r = match netspace_validate(&changes).map_err(op)
-    if validated_map_r.is_err() {
-        validated_map_r
-    }
-    let validated_map = validated_map_r.unwrap();
+    let mut fail_reason: Option<FailedReason> = None;
+    validate_remote_chg(&changes, fail_reason);
 
-    if let Err(err) = localspace_validate(&validated_map).is_err() {
-        Err((err))
-    }
 
     // send success or err msg of above
     let overlay_confirmation_res: bool;
     if INITIATOR_CONFIRM {
-        overlay_confirmation_res = initiator_confirm(&validated_map);
+        overlay_confirmation_res = initiator_confirm(&validated_map, fail_reason);
     } else {
-        overlay_confirmation_res = peer_confirm(&validated_map);
+        overlay_confirmation_res = peer_confirm(&validated_map, fail_reason);
     }
 
     // when all succeed msg recieved, push changes to disk
     if overlay_confirmation_res {
-        push_to_db(validated_map);
+        write_remote_chg(validated_map);
     }
 }
 
-fn netspace_validate(msg: &str) -> Result<HashMap<String, Value>, String> {
+fn validate_remote_chg(msg: &str) {
     /*
     iniatior visibility
     size check (involving peer bandwidth check)
     lexical
     syntax
-    semantics (involving matching procedure config check)
+    semantics (involving matching procedure config check & consistent db log check)
     */
 
-    let serde_res: Result<HashMap<String, Value>, Error> = serde_json::from_str(msg);
-    match serde_res {
-        Ok(serde_s) => {
-            Ok((serde_s))
-        }
-        Err((msg)) => {
-            log::error!(msg);
-            Err(("Failed to parse db change string"));
-        }
-    }
-    
 }
 
-fn localspace_validate(msg: &str) -> Result<(), String> {
+fn validate_local_chg(msg: &str) {
     /*
-    semantics (involving consistent db log check)
+    self visibility
+    size check
+    lexical
+    syntax
+    semantics (involving peer bandwidth check)
     */
+
+}
+
+fn initiator_confirm(msg: &str, fail_reason: Option<FailedReason>) -> Result<(), String> {
     Ok(())
 }
 
-fn initiator_confirm(msg: &str) -> Result<(), String> {
-    Ok(())
-}
-
-fn peer_confirm(msg: &str) -> Result<(), String> {
+fn peer_confirm(msg: &str, fail_reason: Option<FailedReason>) -> Result<(), String> {
     Ok(())
 }
 
 
-fn push_to_db(msg: &HashMap<String, Value>) {
+fn write_remote_chg(msg: &HashMap<String, Value>) -> Result<(), String> {
     // append csv file
+    let data_chg: String = msg.get("data").unwrap();
+    return append_chg(data_chg);
+}
+
+pub fn append_chg(chg: String) -> Result<(), String>  {
+    // TODO: maybe change this to a command sent to a db thread
+
     let db_path_res = dir::get_root_file_path("db.csv");
     match db_path_res {
         Ok(db_path) => {
@@ -93,9 +125,8 @@ fn push_to_db(msg: &HashMap<String, Value>) {
             }
 
             let db_csv_s: &mut String = &mut db_csv_r.unwrap();
-            let data_chg: String = msg.get("data").unwrap();
 
-            let appended_db_csv = db_csv_s + data_chg;
+            let appended_db_csv = db_csv_s + chg;
 
             fs::write(db_path, appended_db_csv);
         }
@@ -106,18 +137,21 @@ fn push_to_db(msg: &HashMap<String, Value>) {
     }
 }
 
+pub fn db_to_str() -> Result<String, String> {
+    let db_path_res = dir::get_root_file_path("db.csv");
+    match db_path_res {
+        Ok(db_path) => {
+            let db_csv_r = fs::read_to_string(db_path);
+            if db_csv_r.is_err() {
+                db_csv_r;
+            }
 
-pub fn process_local_change() {
-    // validate and checks
-
-    // if success, store in temp cache
-
-    // send broadcast to relevant peers
-
-    // wait for relevant peer response
-
-    // when all msg recieved, send total peer process results out to relevants
-
-    // if all succeed, push changes to disk
+            return Ok(db_csv_r.unwrap())
+        }
+        Err((msg)) => {
+            log::error!(msg);
+            Err(("Failed to get db from disk"));
+        }
+    }
 }
 

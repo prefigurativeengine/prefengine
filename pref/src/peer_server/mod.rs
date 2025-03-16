@@ -15,53 +15,16 @@ use crate::peer_server::peer::{self, *};
 mod connection;
 use crate::peer_server::connection as conn;
 
-mod db;
+pub mod db;
 use crate::peer_server::db as peer_db;
+
+pub mod ret_util;
 
 use crate::core::{self, *};
 use configparser::ini::Ini;
 
 const RET_URL: &str = "127.0.0.1:3502";
 const PREF_URL: &str = "127.0.0.1:3501";
-
-pub fn gen_config(
-    c_type: peer::PeerCapability, 
-    bt: bool, 
-    log_level: u32, 
-    auth_pass: String, 
-    ipv6_addr: Option<Ipv6Addr>) -> Result<(), String> {
-    // Get needed info; c type, available socket interfaces. assumes a tcp interface is connected to internet.
-
-    let mut config = Ini::new();
-    config.load("reticulum_dummy_config.conf")?;
-    
-    match c_type {
-        peer::PeerCapability::Desktop => {
-            config.set("reticulum", "enable_transport", Some("No"));
-            config.set("reticulum", "share_instance", Some("No"));
-        }
-
-        peer::PeerCapability::Server | peer::PeerCapability::PtpRelay => {
-            config.set("reticulum", "enable_transport", Some("Yes"));
-        }
-    }
-
-    // TODO: when loglevel is actually implemented for prefengine, make the prefengine loglevel match reticulum's tiers
-    config.set("logging", "loglevel", Some(log_level));
-
-    // TODO: reticulum only supports hardcoded auth passphrases on file, later on this needs to be dynamic and not just based 
-    // off a file
-    config.set("TCP Server Interface", "passphrase", Some(auth_pass));
-
-    match ipv6_addr {
-        Some(addr) => {
-            config.set("TCP Server Interface", "listen_ip", Some(addr));
-            config.set("TCP Client Interface", "target_host", Some(addr));    
-        }
-    }
-
-    return config.write("reticulum_config.conf");
-}
 
 
 pub struct Server {
@@ -91,13 +54,16 @@ impl Server {
         thread::spawn(self.ret_listen);
     }
 
-    pub fn send_db_change(&mut self, change: String) {
+    pub fn send_db_change(&mut self, change: String) -> Result<(), String> {
         let mut change_map = HashMap::new();
         change_map.insert("action".to_owned(), "send".to_owned());
         change_map.insert("change".to_owned(), change);
 
         let json_s = self.format_for_ret(None, SEND_ACTION, Some(change_map));
-        self.ret_send(json_s);
+        match self.ret_send(json_s) {
+            Ok(size) => Ok(()),
+            Err(err) => Err(err.to_string())
+        }
     }
 
     fn peer_connect_all(&self) -> Result<(), String> {

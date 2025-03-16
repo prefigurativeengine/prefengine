@@ -13,7 +13,7 @@ use libp2p::{Multiaddr};
 use std::net::{IpAddr, Ipv4Addr};
 use std::process::{Command, Child};
 
-pub struct Overlay 
+pub struct Application 
 {
     discov_result: DiscoveryResult,
     external_ip: IpAddr,
@@ -21,9 +21,9 @@ pub struct Overlay
     ret_process: Child
 }
 
-impl Overlay 
+impl Application 
 {
-    pub async fn new() -> Overlay 
+    pub async fn new() -> Application 
     {
         core::pref_log::init_styled_logger();
         log::info!("Initialized log");
@@ -31,7 +31,7 @@ impl Overlay
         // TODO: make this not mut
         let mut ext_addr = Ipv4Addr::from_str("127.0.0.1").expect("no");
         let mut upnp_success = false;
-        let first_start = Overlay::is_first_time();
+        let first_start = Application::is_first_time();
         if first_start {
             let discov_res = discovery::try_upnp_setup();
 
@@ -60,7 +60,8 @@ impl Overlay
         let using_bt = matches!(self_p.network_space.addr.bt, Some(_));
         let auth_pass = "test_password";
 
-        match peer_server::gen_config(self_p.capability_type, using_bt, 4, auth_pass, None) {
+        use peer_server::ret_util;
+        match ret_util::gen_config(self_p.capability_type, using_bt, 4, auth_pass, None) {
             Ok(()) => {
                 log::info!("Initialized reticulum config");
             } 
@@ -103,7 +104,7 @@ impl Overlay
         
         let server_inst = peer_server::Server::new();
 
-        return Overlay {
+        return Application {
             discov_result: DiscoveryResult { upnp_enabled: upnp_success },
             external_ip: ext_addr,
             ret_process: ret,
@@ -111,26 +112,26 @@ impl Overlay
         };
     }
 
-    pub async fn run(&self) 
-    {
-        
 
-        // auth
+    pub fn get_db_data() -> Result<String, String> {
+        return peer_server::db::db_to_str();
+    }
 
-        // sec
+    pub fn set_db_data(new_data: String) -> Result<(), String> {
+        return peer_server::db::append_chg(new_data);
+    }
 
-        // circle conn
-
+    pub fn update_db(&mut self, rows: String) -> Result<(), String> {
+        return peer_server::db::process_local_change(rows, &mut self.server);
     }
 
     fn is_first_time() -> bool 
     {
-        // TODO: make this a global constant
+        // TODO: improve this, maybe change to looking for config file
         let mut path = env::current_dir()
             .expect("Unable to read current working directory");
         path.push("DO_NOT_DELETE_OR_MOVE");
 
-        // TODO: for windows, maybe replace with registry value lookup, or json value in config file
         if (Path::new(&path).exists()) {
             return false
         } else {

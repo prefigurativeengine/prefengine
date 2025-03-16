@@ -2,10 +2,11 @@
 extern crate pref;
 use std::future::IntoFuture;
 
-use pref::{ app::Engine as pref_engine, Server};
+use pref::{ app::Application as pref_engine, Server};
 use tokio;
 use std::thread as thread;
 
+// TODO: simplify startup procedure; no run method 
 pub struct Sandbox {
     eng: pref_engine
 }
@@ -16,6 +17,7 @@ impl Sandbox {
         return Sandbox { eng: e };
     }
 }
+
 
 impl Server for Sandbox  {
     async fn run(&self) {
