@@ -112,6 +112,19 @@ impl Application
         };
     }
 
+    pub fn stop() {
+        let discov_res = discovery::rmv_upnp_setup();
+
+        match discov_res {
+            Ok(()) => {
+                log::info!("UPnP port disabled");
+            }
+            Err(msg) => {
+                log::error!("Failed to disable UPnP port");
+            }
+        }
+    }
+
 
     pub fn get_db_data() -> Result<String, String> {
         return peer_server::db::db_to_str();

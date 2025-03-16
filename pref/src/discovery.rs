@@ -57,7 +57,7 @@ pub struct DiscoveryResult
 
 use std::error::Error;
 use log::error;
-use easy_upnp::{add_ports, Ipv4Cidr, PortMappingProtocol, UpnpConfig};
+use easy_upnp::{add_ports, delete_ports, Ipv4Cidr, PortMappingProtocol, UpnpConfig};
 
 fn get_config() -> UpnpConfig {
     let config_no_address = UpnpConfig {
@@ -71,6 +71,19 @@ fn get_config() -> UpnpConfig {
     config_no_address
 }
 
+pub fn rmv_upnp_setup() -> Result<(), DiscoveryError> {
+    let config: UpnpConfig = get_config();
+    let mut result = delete_ports([config]);
+
+    let first_port_res: Option<Result<(), easy_upnp::Error>> = result.next();
+
+    match first_port_res {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            Err(err.to_string())
+        }
+    }
+}
 
 pub fn try_upnp_setup() -> Result<String, DiscoveryError> {
     let config: UpnpConfig = get_config();
