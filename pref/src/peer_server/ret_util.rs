@@ -1,4 +1,8 @@
 
+use crate::peer_server::peer;
+use std::net::{self, Ipv4Addr, Ipv6Addr, TcpListener, TcpStream};
+use configparser::ini::Ini;
+
 pub fn gen_config(
     c_type: peer::PeerCapability, 
     bt: bool, 
@@ -12,17 +16,19 @@ pub fn gen_config(
     
     match c_type {
         peer::PeerCapability::Desktop => {
-            config.set("reticulum", "enable_transport", Some("No"));
-            config.set("reticulum", "share_instance", Some("No"));
+            config.set("reticulum", "enable_transport", Some("No".to_owned()));
+            config.set("reticulum", "share_instance", Some("No".to_owned()));
         }
 
         peer::PeerCapability::Server | peer::PeerCapability::PtpRelay => {
-            config.set("reticulum", "enable_transport", Some("Yes"));
+            config.set("reticulum", "enable_transport", Some("Yes".to_owned()));
         }
+
+        _ => {}
     }
 
     // TODO: when loglevel is actually implemented for prefengine, make the prefengine loglevel match reticulum's tiers
-    config.set("logging", "loglevel", Some(log_level));
+    config.set("logging", "loglevel", Some(log_level.to_string()));
 
     // TODO: reticulum only supports hardcoded auth passphrases on file, later on this needs to be dynamic and not just based 
     // off a file
@@ -30,10 +36,16 @@ pub fn gen_config(
 
     match ipv6_addr {
         Some(addr) => {
-            config.set("TCP Server Interface", "listen_ip", Some(addr));
-            config.set("TCP Client Interface", "target_host", Some(addr));    
+            config.set("TCP Server Interface", "listen_ip", Some(addr.to_string()));
+            config.set("TCP Client Interface", "target_host", Some(addr.to_string()));    
         }
+        _ => {}
     }
 
-    return config.write("reticulum_config.conf");
+    match config.write("reticulum_config.conf") {
+        Ok(()) => Ok(()),
+        Err(err) => {
+            Err(err.to_string())
+        }
+    }
 }

@@ -1,6 +1,4 @@
 
-use crate::peer_server::connection;
-
 // TODO: seperate mutable network info from peerinfo
 pub struct Peer {
     pub state: PeerState,
@@ -26,7 +24,7 @@ impl Peer {
 
 
 pub struct PeerInfo {
-    pub id: PeerId
+    pub id: PeerId,
     pub p_type: PeerType,
     pub network_space: NetworkSide, 
     capability_type: PeerCapability
@@ -38,8 +36,9 @@ pub struct PeerId {
 }
 
 use crate::core::dir;
-use std::net::IpAddr;
-use std::{fs, path::PathBuf, str::FromStr};
+use std::net::{IpAddr, Ipv4Addr};
+use std::str::FromStr;
+use std::{fs, path::PathBuf};
 use std::path;
 
 impl PeerInfo {
@@ -94,10 +93,11 @@ impl PeerInfo {
             */
 
             let pi1 = PeerInfo {
+                id: PeerId { parent_id: "test".to_owned(), child_dest_id: "test".to_owned() },
                 p_type: PeerType::Local { local_space: ( LocalSide {  } ) },
                 network_space: NetworkSide {
                     addr: PeerAddress {
-                        ip: Some(Ipv4Addr::from_str("s").expect("msg"))
+                        ip: Some(IpAddr::V4(Ipv4Addr::from_str("s").expect("msg"))),
                         bt: None
                     }
                 },
@@ -109,7 +109,7 @@ impl PeerInfo {
 
         else {
             fs::File::create(peer_path).expect("Unable to create json peers file");
-            return Ok(vec![]);
+            return Err("Self peer file doesn't exist".to_owned());
         }
     }
 
@@ -119,17 +119,37 @@ impl PeerInfo {
         match peer_path_res {
             Ok(peer_path) => {
                 let peer_json_r = fs::read_to_string(peer_path);
-                if peer_json_r.is_err() {
-                    return peer_json_r;
+                match peer_json_r {
+                    Ok(v) => {},
+                    Err(e) => { Err(e.to_string()) }
                 }
-                let json_array: Vec<PeerInfo> = serde_json::from_str(&peer_json_r.unwrap());
+
+                let peer_json = peer_json_r.unwrap();
+
+                let json_array_r = serde_json::from_str(&peer_json);
+                match json_array_r {
+                    Ok(v) => {},
+                    Err(e) => { Err(e.to_string()) }
+                }
+
+                let json_array = json_array_r.unwrap();
                 json_array.extend(new_peers);
 
-                fs::write(peer_path, serde_json::to_string(json_array));
+                let json_str_r = serde_json::to_string(&json_array);
+                match json_str_r {
+                    Ok(v) => {},
+                    Err(e) => { Err(e.to_string()) }
+                }
+
+                let json_str = json_str_r.unwrap();
+                match fs::write(peer_path, json_str) {
+                    Ok(()) => Ok(()),
+                    Err(err) => Err(err.to_string())
+                }
             }
             Err((msg)) => {
                 log::error!(msg);
-                Err(("Failed to get remote peers from disk"));
+                Err("Failed to get remote peers from disk".to_owned());
             }
         }
     }
