@@ -114,31 +114,33 @@ impl PeerInfo {
     }
 
 
-    fn append_peers_to_disk(new_peers: Vec<PeerInfo>) -> Result<(), String>  {
+    pub fn append_peers_to_disk(new_peers: Vec<PeerInfo>) -> Result<(), String>  {
         let peer_path_res = dir::get_root_file_path("peers.json");
         match peer_path_res {
             Ok(peer_path) => {
                 let peer_json_r = fs::read_to_string(peer_path);
                 match peer_json_r {
                     Ok(v) => {},
-                    Err(e) => { Err(e.to_string()) }
+                    Err(e) => { 
+                        return Err(e.to_string()) 
+                    }
                 }
 
                 let peer_json = peer_json_r.unwrap();
 
-                let json_array_r = serde_json::from_str(&peer_json);
+                let json_array_r: Result<Vec<PeerInfo>, serde_json::Error> = serde_json::from_str(&peer_json);
                 match json_array_r {
                     Ok(v) => {},
-                    Err(e) => { Err(e.to_string()) }
+                    Err(e) => { return Err(e.to_string()) }
                 }
 
-                let json_array = json_array_r.unwrap();
+                let json_array: Vec<PeerInfo> = json_array_r.unwrap();
                 json_array.extend(new_peers);
 
                 let json_str_r = serde_json::to_string(&json_array);
                 match json_str_r {
                     Ok(v) => {},
-                    Err(e) => { Err(e.to_string()) }
+                    Err(e) => { return Err(e.to_string()) }
                 }
 
                 let json_str = json_str_r.unwrap();
@@ -149,7 +151,7 @@ impl PeerInfo {
             }
             Err((msg)) => {
                 log::error!(msg);
-                Err("Failed to get remote peers from disk".to_owned());
+                return Err("Failed to get remote peers from disk".to_owned());
             }
         }
     }

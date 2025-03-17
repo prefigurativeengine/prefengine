@@ -1,7 +1,7 @@
 
 use std::net::TcpStream;
 
-use crate::peer_server::peer;
+
 pub struct TcpConnection {
     strength: TcpStrength,
     visibles: Vec<u32>,

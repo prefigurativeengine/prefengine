@@ -43,13 +43,6 @@ impl fmt::Display for NetError {
 
 impl Error for NetError {}
 
-//use futures::prelude::*;
-//use libp2p::{noise, swarm::SwarmEvent, upnp, yamux, Multiaddr};
-use std::net::{Ipv4Addr, SocketAddrV4};
-
-
-use pnet::datalink::{interfaces, NetworkInterface};
-
 pub struct DiscoveryResult 
 {
     pub upnp_enabled: bool
@@ -57,7 +50,8 @@ pub struct DiscoveryResult
 
 use std::error::Error;
 use log::error;
-use easy_upnp::{add_ports, delete_ports, Ipv4Cidr, PortMappingProtocol, UpnpConfig};
+use easy_upnp::{add_ports, delete_ports, PortMappingProtocol, UpnpConfig};
+use crate::core::PREF_PEER_PORT;
 
 fn get_config() -> UpnpConfig {
     let config_no_address = UpnpConfig {
@@ -77,10 +71,15 @@ pub fn rmv_upnp_setup() -> Result<(), DiscoveryError> {
 
     let first_port_res: Option<Result<(), easy_upnp::Error>> = result.next();
 
-    match first_port_res {
+    // TODO: shouldn't happen but check if None
+    let unwrap_res = first_port_res.unwrap();
+    
+    match unwrap_res {
         Ok(()) => Ok(()),
         Err(err) => {
-            Err(err.to_string())
+            return Err(
+                DiscoveryError::NATError(err.to_string())
+            );
         }
     }
 }
