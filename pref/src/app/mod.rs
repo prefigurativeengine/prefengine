@@ -56,7 +56,7 @@ impl Application
             }
         }
 
-        let self_p = peer_server::PeerInfo::load_self_peer();
+        let self_p = peer_server::RemotePeerInfo::load_self_peer();
         let using_bt = matches!(self_p.network_space.addr.bt, Some(_));
         let auth_pass = "test_password";
 

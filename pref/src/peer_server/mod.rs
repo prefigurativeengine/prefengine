@@ -4,9 +4,8 @@ use std::net::{self, Ipv4Addr, Ipv6Addr, TcpListener, TcpStream};
 use std::{fs, thread}; 
 
 mod peer;
-use peer::Peer;
-use peer::PeerInfo;
-use peer::PeerType;
+use peer::RemotePeer;
+use peer::RemotePeerInfo;
 use peer::PeerCapability;
 use serde_json::Value;
 
@@ -23,13 +22,13 @@ const PREF_URL: &str = "127.0.0.1:3501";
 pub struct Server {
     ret_api_listener: net::TcpListener,
     ret_api_conn: net::TcpStream,
-    peers: Vec<Peer>,
+    peers: Vec<RemotePeer>,
 }
 
 const FO_RECONNECT_ACTION: &str = "fo_reconnect";
 const SEND_ACTION: &str = "send";
 
-use serde_json::{Result};
+use serde_json::{Result as s_Result};
 
 impl Server {
     pub fn new() -> Server {
@@ -46,10 +45,10 @@ impl Server {
 
     pub fn start(&self) {
         self.peer_connect_all();
-        thread::spawn(|&self| {
-			&self.ret_listen();
+        thread::spawn(move|| {
+			self.ret_listen();
 		});
-    }
+    }  
 
     pub fn send_db_change(&mut self, change: String) -> Result<(), String> {
         let mut change_map = HashMap::new();
@@ -64,7 +63,7 @@ impl Server {
     }
 
     fn peer_connect_all(&self) -> Result<(), String> {
-        if let Ok(peers) = PeerInfo::load_remote_peers() {
+        if let Ok(peers) = RemotePeerInfo::load_remote_peers() {
             for peer in peers {
                 match self.peer_connect(peer) {
                     Ok(()) => {
@@ -83,7 +82,7 @@ impl Server {
         }
     }
 
-    fn peer_connect(&self, peer: PeerInfo) -> Result<usize, std::io::Error> {
+    fn peer_connect(&self, peer: RemotePeerInfo) -> Result<usize, std::io::Error> {
         if matches!(peer.p_type, PeerType::Local { local_space: _ }) {
             return Err(Error::new(ErrorKind::Other, "Cannot connect to local peer"))
         }
@@ -94,7 +93,7 @@ impl Server {
         return res;
     }
 
-    fn format_for_ret(id: Option<String>, action: &str, data: Option<HashMap<String, String>>) -> String {
+    fn format_for_ret(id: Option<String>, action: &str, data: Option<HashMap<String, String>>) -> Result<String, String> {
         let mut hm_dto: HashMap<String, String> = HashMap::new();
 
         if let Some(id_val) = id {
@@ -106,8 +105,13 @@ impl Server {
         if matches!(data, Some(_)) {
             hm_dto.extend(data.unwrap());
         }
-
-        return serde_json::to_string(hm_dto);
+ 
+        match serde_json::to_string(&hm_dto) {
+            Ok(str_dto) => Ok(str_dto),
+            Err(err) => {
+                Err(err.to_string());
+            }
+        }
     }
 
     fn ret_send(&mut self, data: String) -> Result<usize, std::io::Error> {
@@ -162,7 +166,7 @@ impl Server {
 
     fn check_peer_req(&self, resp: HashMap<String, Value>) -> bool {
         for peer in self.get_disconn_peers() {
-            if peer.info.id.child_dest_id == resp.get("id") {
+            if peer.id.child_dest_id == resp.get("id") {
                 return true;
             }
         }
@@ -172,9 +176,9 @@ impl Server {
     // assumes resp is a known peer
     fn add_peer(&self, new_peer: HashMap<String, Value>) -> Result<(), String> {
         // add to runtime list
-        let new_p: Peer;
+        let new_p: RemotePeer;
         
-        let disconn_peers_res: Result<Vec<PeerInfo>, String> = self.get_disconn_peers();
+        let disconn_peers_res: Result<Vec<RemotePeerInfo>, String> = self.get_disconn_peers();
         if disconn_peers_res.is_err() {
             return Err("Getting disconnected peers failed".to_owned());
         }
@@ -182,18 +186,18 @@ impl Server {
         for p_info in disconn_peers_res.unwrap() {
             if let Some(id) = new_peer.get("id") {
                 if p_info.id.child_dest_id == id {
-                    new_p = Peer::new(p_info);
+                    new_p = RemotePeer::new(p_info);
                     self.peers.push(new_p);
                 }
             }
         }
         
         // add to persistant peers if new
-        PeerInfo::append_peers_to_disk(vec![new_p.info]);
+        RemotePeerInfo::append_peers_to_disk(vec![new_p.info]);
     }
 
-    fn get_disconn_peers(&self) -> Result<Vec<PeerInfo>, String> {
-        let disk_peer_res: Result<Vec<PeerInfo>, String> = PeerInfo::load_remote_peers();
+    fn get_disconn_peers(&self) -> Result<Vec<RemotePeerInfo>, String> {
+        let disk_peer_res: Result<Vec<RemotePeerInfo>, String> = RemotePeerInfo::load_remote_peers();
         match disk_peer_res {
             Ok(d_peers) => {
                 Ok(self.filter_pinfo_for_disconn(d_peers));
@@ -204,8 +208,8 @@ impl Server {
         }
     }
 
-    fn filter_pinfo_for_disconnected(self, p_infos: &Vec<PeerInfo>) -> Vec<PeerInfo> {
-        let mut disconn_peers: Vec<PeerInfo> = vec![];
+    fn filter_pinfo_for_disconnected(self, p_infos: &Vec<RemotePeerInfo>) -> Vec<RemotePeerInfo> {
+        let mut disconn_peers: Vec<RemotePeerInfo> = vec![];
 
         for peer_info in p_infos {
             // brute forcing, but peers in a given overlay have upper limit of 150
