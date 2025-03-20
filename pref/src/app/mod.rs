@@ -8,15 +8,17 @@ use std::fs;
 use std::str::FromStr;
 use std::thread::sleep;
 use crate::discovery;
-use crate::discovery::{ DiscoveryResult, DiscoveryError, NetError };
+use crate::discovery::{ DiscoveryError, NATConfig };
 use libp2p::{Multiaddr};
 use std::net::{IpAddr, Ipv4Addr};
 use std::process::{Command, Child};
+use peer_server::ret_util;
+
+// instead of discov_result & external_ip, use nat part of model
 
 pub struct Application 
 {
-    discov_result: DiscoveryResult,
-    external_ip: IpAddr,
+    nat: NATConfig,
     server: peer_server::Server,
     ret_process: Child
 }
@@ -40,9 +42,9 @@ impl Application
                 log::info!("UPnP enabled");
 
                 // TODO: make option for ipv6
-                ext_addr = IpAddr::V4(Ipv4Addr::from_str(&ip).expect("myexternalip.com failed...");)
+                ext_addr = IpAddr::V4(Ipv4Addr::from_str(&ip).expect("myexternalip.com failed..."));
                 upnp_success = true;
-            } 
+            }
             
             else if let Err(err) = discov_res {
                 match err {
@@ -57,16 +59,17 @@ impl Application
         }
  
         let self_p = peer_server::RemotePeerInfo::load_self_peer();
-        let using_bt = matches!(self_p.network_space.addr.bt, Some(_));
-        let auth_pass = "test_password";
+        let using_bt = matches!(self_p.addr.bt, Some(_));
 
-        use peer_server::ret_util;
+        // TODO: reticulum authentication
+        let auth_pass = "test_password".to_owned();
+
         match ret_util::gen_config(self_p.capability_type, using_bt, 4, auth_pass, None) {
             Ok(()) => {
                 log::info!("Initialized reticulum config");
-            } 
+            },
             Err(err) => {
-                panic!("UPnP failed: {}", msg);
+                panic!("UPnP failed: {}", err);
             }
         }
 
@@ -76,7 +79,7 @@ impl Application
             } else {
                 vec!["retapi.py"]
             }
-        }
+        };
 
         let ret = Command::new("python")
             .args(args)
@@ -88,14 +91,14 @@ impl Application
             match ret.stdout.take() {
                 Some(retout) => {
                     let mut buffer = String::new();
-                    let res = retout.read_to_string(buffer)
+                    let res = retout.read_to_string(&mut buffer)
                         .expect("failed to read first stdout from retapi.py");
 
                     if buffer.starts_with("Server listening") {
                         log::info!("Recieved Reticulum API listening message");
                         break;
                     }
-                }
+                },
                 None => {
                     sleep(time::Duration::from_millis(500));
                 }
@@ -105,8 +108,7 @@ impl Application
         let server_inst = peer_server::Server::new();
 
         return Application {
-            discov_result: DiscoveryResult { upnp_enabled: upnp_success },
-            external_ip: ext_addr,
+            nat: NATConfig::new(),
             ret_process: ret,
             server: server_inst
         };
@@ -131,7 +133,7 @@ impl Application
     }
 
     pub fn set_db_data(new_data: String) -> Result<(), String> {
-        return peer_server::db::append_chg(new_data);
+        return peer_server::db::append_chg(&new_data);
     }
 
     pub fn update_db(&mut self, rows: String) -> Result<(), String> {
