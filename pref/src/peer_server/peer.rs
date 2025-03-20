@@ -18,6 +18,7 @@ impl RemotePeer {
 
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
+#[derive(Clone)]
 pub struct RemotePeerInfo {
     pub id: PeerId,
     pub addr: PeerAddress,
@@ -123,6 +124,7 @@ impl RemotePeerInfo {
 // stores two ids, c_id serves as reticulum destination hash and is created from p_id, a reticulum identity
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
+#[derive(Clone)]
 pub struct PeerId {
     pub p_id: String,
     pub c_id: String
@@ -130,6 +132,7 @@ pub struct PeerId {
 
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
+#[derive(Clone)]
 pub enum PeerCapability {
     Desktop,
     Mobile,
@@ -140,6 +143,7 @@ pub enum PeerCapability {
 
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
+#[derive(Clone)]
 enum PeerState {
     Active,
     Passive,
@@ -149,6 +153,7 @@ enum PeerState {
 // TODO: make it so that either or both of ip and bluetooth can be set but one must be set
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
+#[derive(Clone)]
 struct PeerAddress {
     ip: Option<IpAddr>,
     bt: Option<String>

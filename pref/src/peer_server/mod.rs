@@ -30,6 +30,7 @@ const FO_RECONNECT_ACTION: &str = "fo_reconnect";
 const SEND_ACTION: &str = "send";
 
 use serde_json::{Result as s_Result};
+use serde_json::Error as s_Error;
 use std::sync::Mutex;
 impl Server {
     pub fn new(ps: &Arc<Mutex<PeerStore>>) -> Server {
@@ -68,19 +69,25 @@ impl Server {
         change_map.insert("action".to_owned(), "send".to_owned());
         change_map.insert("change".to_owned(), change);
 
-        let json_s = Server::format_for_ret(None, SEND_ACTION, Some(change_map));
+        let json_s_r = Server::format_for_ret(None, SEND_ACTION, Some(change_map));
+        if let Err(err) = json_s_r {
+            return Err(err) 
+        }
+
+        let json_s = json_s_r.unwrap();
+
         match self.ret_send(json_s) {
             Ok(size) => Ok(()),
             Err(err) => return Err(err.to_string())
         }
     }
 
-    fn peer_connect_all(&self) -> Result<(), String> {
+    fn peer_connect_all(&mut self) -> Result<(), String> {
         if let Ok(peers) = RemotePeerInfo::load_remote_peers() {
             for peer in peers {
-                match self.peer_connect(peer) {
-                    Ok(()) => {
-                        log::info!("Sent reconnect msg to reverse proxy for {}", peer.id.parent_id);
+                match self.peer_connect(&peer) {
+                    Ok((_)) => {
+                        log::info!("Sent reconnect msg to reverse proxy for {}", peer.id.p_id);
                     },
         
                     Err(error_s) => {
@@ -95,13 +102,17 @@ impl Server {
         }
     }
 
-    fn peer_connect(&self, peer: RemotePeerInfo) -> Result<usize, std::io::Error> {
-        if matches!(peer.p_type, PeerType::Local { local_space: _ }) {
-            return Err(Error::new(ErrorKind::Other, "Cannot connect to local peer"))
+    fn peer_connect(&mut self, peer: &RemotePeerInfo) -> Result<usize, std::io::Error> {
+        // TODO: run through a list of connection tactics according to values in peerinfo 
+
+        let id_cpy = peer.id.p_id.clone();    
+        let json_s_r = Server::format_for_ret(Some(id_cpy), FO_RECONNECT_ACTION, None);
+        if let Err(err) = json_s_r {
+            let err_obj = std::io::Error::new(std::io::ErrorKind::Other, err);
+            return Err(err_obj);
         }
-        
-        // TODO: run through a list of connection tactics according to values in peerinfo    
-        let json_s = Server::format_for_ret(Some(peer.id.parent_id), FO_RECONNECT_ACTION, None);
+
+        let json_s = json_s_r.unwrap();
         let res = self.ret_send(json_s);
         return res;
     }
@@ -227,24 +238,31 @@ impl Listener {
             }
         }
     }
-
+    
     fn dispatch_ret_resp(&self, resp: String) -> Result<(), String> {
-        // HACK
+        // HACK: use rpc library
         let new_peer = "{\"action\":\"new_peer";
         let resc_fin = "{\"action\":\"resc_fin";
 
         match &resp[0..19] {
             new_peer => {
-                let serde_res: Result<HashMap<String, Value>, Error> = serde_json::from_str(&resp);
-                if matches!(serde_res, Some(_)) {
+                let serde_res: Result<HashMap<String, Value>, s_Error> = serde_json::from_str(&resp);
+
+                if matches!(serde_res, Ok(_)) {
                     let serde_j = serde_res.unwrap();
                     let mut ps = self.peers.lock().unwrap();
-                    if ps.check_peer_req(serde_j) {
+
+                    let check_res = ps.check_peer_req(&serde_j);
+                    if check_res.is_ok() {
                         ps.add_peer(serde_j);
+                        return Ok(());
+                    } 
+                    else {
+                        return Err("Peer validation failed".to_owned());
                     }
-                    return Ok(());
-                } else {
-                    log::error!("Failed to decode ret proxy message into json: {}", serde_res.unwrap());
+                } 
+                
+                else {
                     return Err("Failed to decode ret proxy message into json".to_owned());
                 }
             },
@@ -261,13 +279,26 @@ struct PeerStore {
 }
 
 impl PeerStore {
-    fn check_peer_req(&self, resp: HashMap<String, Value>) -> bool {
-        for peer in self.get_disconn_peers() {
-            if peer.id == resp.get("id") {
-                return true;
+    fn check_peer_req(&self, resp: &HashMap<String, Value>) -> Result<bool, String> {
+        let dis_peers = self.get_disconn_peers();
+        if dis_peers.is_err() {
+            return Err("Getting disconnected peers failed".to_owned());
+        }
+
+        for peer in dis_peers.unwrap() {
+            if let Some(id_val) = resp.get("id") {
+                if let Value::String(id_s) = id_val {
+                    if peer.id.c_id == *id_s {
+                        return Ok(true);
+                    }
+                } 
+                
+                else {
+                    return Err("incorrect value for id".to_owned()) 
+                }
             }
         }
-        return false;
+        return Ok(false);
     }
     
     // assumes resp is a known peer
@@ -282,22 +313,30 @@ impl PeerStore {
 
         for p_info in disconn_peers_res.unwrap() {
             if let Some(id) = new_peer.get("id") {
-                if p_info.id.c_id == id {
-                    new_p = RemotePeer::new(p_info);
-                    self.peers.push(new_p);
+                if let Value::String(id_s) = id {
+                    if p_info.id.c_id == *id_s {
+                        let disk_clone = p_info.clone();
+                        new_p = RemotePeer::new(p_info);
+                        self.peers.push(new_p);
+
+                        // add to persistant peers if new
+                        return RemotePeerInfo::append_peers_to_disk(vec![disk_clone]);
+                    }
+                } 
+                
+                else {
+                    return Err("incorrect value for id".to_owned()) 
                 }
             }
         }
-        
-        // add to persistant peers if new
-        return RemotePeerInfo::append_peers_to_disk(vec![new_p.info]);
+        Err("peer unknown".to_owned())
     }
 
     fn get_disconn_peers(&self) -> Result<Vec<RemotePeerInfo>, String> {
         let disk_peer_res: Result<Vec<RemotePeerInfo>, String> = RemotePeerInfo::load_remote_peers();
         match disk_peer_res {
             Ok(d_peers) => {
-                return Ok(self.filter_pinfo_for_disconn(d_peers));
+                return Ok(self.filter_disconnected(&d_peers));
             },
             Err(msg) => {
                 return Err(("Failed to get remote peers from disk".to_owned()));
@@ -305,17 +344,17 @@ impl PeerStore {
         }
     }
 
-    fn filter_pinfo_for_disconnected(&self, p_infos: &Vec<RemotePeerInfo>) -> Vec<RemotePeerInfo> {
+    fn filter_disconnected(&self, p_infos: &Vec<RemotePeerInfo>) -> Vec<RemotePeerInfo> {
         let mut disconn_peers: Vec<RemotePeerInfo> = vec![];
 
         for peer_info in p_infos {
             // brute forcing, but peers in a given overlay have upper limit of 150
 
-            let current_id = peer_info.id.p_id;
-            let found: bool;
+            let current_id = &peer_info.id.p_id;
+            let mut found = false;
 
-            for online_peer in self.peers {
-                if current_id == online_peer.info.id.p_id {
+            for online_peer in &self.peers {
+                if *current_id == online_peer.info.id.p_id {
                     found = true;
                 }
             }
