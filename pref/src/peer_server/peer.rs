@@ -136,7 +136,7 @@ pub struct PeerId {
 pub enum PeerCapability {
     Desktop,
     Mobile,
-    Server,
+    Client,
     RadioRelay,
     PtpRelay
 }
@@ -154,9 +154,9 @@ enum PeerState {
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
 #[derive(Clone)]
-struct PeerAddress {
-    ip: Option<IpAddr>,
-    bt: Option<String>
+pub struct PeerAddress {
+    pub ip: Option<IpAddr>,
+    pub bt: Option<String>
 }
 
 #[derive(serde::Deserialize)]
@@ -164,7 +164,7 @@ struct PeerAddress {
 pub struct SelfPeerInfo {
     pub id: PeerId,
     pub addr: PeerAddress,
-    cap_type: PeerCapability,
+    pub cap_type: PeerCapability,
     disk: DiskInfo
 }
 

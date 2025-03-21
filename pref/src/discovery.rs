@@ -52,8 +52,8 @@ use crate::core::PREF_PEER_PORT;
 
 
 pub struct NATConfig {
-    is_symmetric: bool,
-    auto_port_forward: bool
+    pub is_symmetric: bool,
+    pub auto_port_forward: bool
 }
 
 impl NATConfig {
@@ -115,7 +115,7 @@ fn get_config() -> UpnpConfig {
         port: PREF_PEER_PORT,
         protocol: PortMappingProtocol::TCP,
         duration: 3600,
-        comment: "Server".to_string(),
+        comment: "Client".to_string(),
     };
 
     config_no_address

@@ -6,20 +6,26 @@ use std::os::windows::io::AsHandle;
 use std::path::Path;
 use std::fs;
 use std::str::FromStr;
+use std::sync::Mutex;
+use std::sync::Arc;
 use std::thread::sleep;
+use std::time;
 use crate::discovery;
 use crate::discovery::{ DiscoveryError, NATConfig };
 use libp2p::{Multiaddr};
 use std::net::{IpAddr, Ipv4Addr};
 use std::process::{Command, Child};
 use peer_server::ret_util;
+use peer_server::PeerStore;
 
 // instead of discov_result & external_ip, use nat part of model
 
 pub struct Application 
 {
     nat: NATConfig,
-    server: peer_server::Server,
+    client: peer_server::Client,
+    listener: peer_server::Listener,
+    online_peers: Arc<Mutex<PeerStore>>,
     ret_process: Child
 }
 
@@ -33,47 +39,38 @@ impl Application
         // TODO: make this not mut
         let mut ext_addr = Ipv4Addr::from_str("127.0.0.1").expect("no");
         let mut upnp_success = false;
-        let first_start = Application::is_first_time();
-        if first_start {
-            let discov_res = discovery::try_upnp_setup();
-
-
-            if let Ok(ip) = discov_res {
-                log::info!("UPnP enabled");
-
-                // TODO: make option for ipv6
-                ext_addr = IpAddr::V4(Ipv4Addr::from_str(&ip).expect("myexternalip.com failed..."));
-                upnp_success = true;
-            }
-            
-            else if let Err(err) = discov_res {
-                match err {
-                    DiscoveryError::NetError(msg) => {
-                        panic!("Internet request failed: {}", msg);
-                    }
-                    DiscoveryError::NATError(msg) => {
-                        panic!("UPnP failed: {}", msg);
-                    }
-                }
-            }
+        let nat_conf = NATConfig::new();
+        
+        if nat_conf.auto_port_forward {
+            log::info!("Auto port-forward enabled");
+        } 
+        else {
+            panic!("Auto port-forward failed, aborting");
         }
  
-        let self_p = peer_server::RemotePeerInfo::load_self_peer();
+        let self_p_r = peer_server::peer::SelfPeerInfo::load_self_peer();
+        if let Err(err) = self_p_r {
+            panic!("Getting self peer failed: {}", err);
+        }
+        let self_p = self_p_r.unwrap();
+
         let using_bt = matches!(self_p.addr.bt, Some(_));
 
         // TODO: reticulum authentication
         let auth_pass = "test_password".to_owned();
 
-        match ret_util::gen_config(self_p.capability_type, using_bt, 4, auth_pass, None) {
+        match ret_util::gen_config(self_p.cap_type, using_bt, 4, auth_pass, None) {
             Ok(()) => {
                 log::info!("Initialized reticulum config");
             },
             Err(err) => {
-                panic!("UPnP failed: {}", err);
+                panic!("Reticulum configuration failed: {}", err);
             }
         }
 
-        let args = {
+        let first_start = Application::is_first_time();
+
+        let ret_args = {
             if first_start {
                 vec!["retapi.py", "first_start"]
             } else {
@@ -81,20 +78,20 @@ impl Application
             }
         };
 
-        let ret = Command::new("python")
-            .args(args)
+        let mut ret = Command::new("python")
+            .args(ret_args)
             .spawn()
             .expect("failed to execute retapi.py");
 
         // TODO: make timeout
         loop {
             match ret.stdout.take() {
-                Some(retout) => {
+                Some(mut retout) => {
                     let mut buffer = String::new();
                     let res = retout.read_to_string(&mut buffer)
                         .expect("failed to read first stdout from retapi.py");
 
-                    if buffer.starts_with("Server listening") {
+                    if buffer.starts_with("Client listening") {
                         log::info!("Recieved Reticulum API listening message");
                         break;
                     }
@@ -104,13 +101,23 @@ impl Application
                 }
             }
         }
+
         
-        let server_inst = peer_server::Server::new();
+        let ps: Arc<Mutex<PeerStore>> = Arc::new(
+            Mutex::new(
+                PeerStore::new()
+            )
+        );
+
+        let listen_inst = peer_server::Listener::new(&ps);
+        let client_inst = peer_server::Client::new(&ps);
 
         return Application {
-            nat: NATConfig::new(),
+            nat: nat_conf,
             ret_process: ret,
-            server: server_inst
+            online_peers: ps,
+            client: client_inst,
+            listener: listen_inst
         };
     }
 
@@ -137,7 +144,7 @@ impl Application
     }
 
     pub fn update_db(&mut self, rows: String) -> Result<(), String> {
-        return peer_server::db::process_local_change(rows, &mut self.server);
+        return peer_server::db::process_local_change(rows, &mut self.client);
     }
 
     fn is_first_time() -> bool 

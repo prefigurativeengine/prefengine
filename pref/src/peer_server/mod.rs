@@ -3,7 +3,7 @@ use std::io::{Read, Write};
 use std::net::{self, Ipv4Addr, Ipv6Addr, TcpListener, TcpStream};
 use std::{fs, thread}; 
 
-mod peer;
+pub mod peer;
 use peer::RemotePeer;
 use peer::RemotePeerInfo;
 use peer::PeerCapability;
@@ -20,7 +20,7 @@ const RET_URL: &str = "127.0.0.1:3502";
 const PREF_URL: &str = "127.0.0.1:3501";
 
 
-pub struct Server {
+pub struct Client {
     //listener: Listener,
     ret_api_conn: net::TcpStream,
     peers: Arc<Mutex<PeerStore>>,
@@ -32,9 +32,9 @@ const SEND_ACTION: &str = "send";
 use serde_json::{Result as s_Result};
 use serde_json::Error as s_Error;
 use std::sync::Mutex;
-impl Server {
-    pub fn new(ps: &Arc<Mutex<PeerStore>>) -> Server {
-        let server = Server {
+impl Client {
+    pub fn new(ps: &Arc<Mutex<PeerStore>>) -> Client {
+        let client = Client {
             // listener: Listener {
             //     inner_listener: TcpListener::bind(PREF_URL)
             //     .expect("Could not start the reticulum listener")
@@ -44,7 +44,7 @@ impl Server {
             peers: Arc::clone(ps),
         };
 
-        server
+        client
     }
 
     pub fn start(&mut self) {
@@ -69,7 +69,7 @@ impl Server {
         change_map.insert("action".to_owned(), "send".to_owned());
         change_map.insert("change".to_owned(), change);
 
-        let json_s_r = Server::format_for_ret(None, SEND_ACTION, Some(change_map));
+        let json_s_r = Client::format_for_ret(None, SEND_ACTION, Some(change_map));
         if let Err(err) = json_s_r {
             return Err(err) 
         }
@@ -106,7 +106,7 @@ impl Server {
         // TODO: run through a list of connection tactics according to values in peerinfo 
 
         let id_cpy = peer.id.p_id.clone();    
-        let json_s_r = Server::format_for_ret(Some(id_cpy), FO_RECONNECT_ACTION, None);
+        let json_s_r = Client::format_for_ret(Some(id_cpy), FO_RECONNECT_ACTION, None);
         if let Err(err) = json_s_r {
             let err_obj = std::io::Error::new(std::io::ErrorKind::Other, err);
             return Err(err_obj);
@@ -151,7 +151,7 @@ impl Server {
 
     //                 match stream.read_to_string(&mut buf) {
     //                     Ok(usize) => {
-    //                         Server::dispatch_ret_resp(buf);
+    //                         Client::dispatch_ret_resp(buf);
     //                     }
 
     //                     Err(err) => {
@@ -218,6 +218,16 @@ pub struct Listener {
 }
 
 impl Listener {
+    pub fn new(ps: &Arc<Mutex<PeerStore>>) -> Listener {
+        let listen = Listener {
+            inner_listener: TcpListener::bind(PREF_URL)
+                .expect("Could not start the reticulum listener"),
+            peers: Arc::clone(ps),
+        };
+
+        listen
+    }
+
     pub fn start(self) {
         for stream in self.inner_listener.incoming() {
             match stream {
@@ -274,11 +284,19 @@ impl Listener {
 }
 
 // for managing in-memory storage of online peers 
-struct PeerStore {
+pub struct PeerStore {
     peers: Vec<RemotePeer>,
 }
 
 impl PeerStore {
+    pub fn new() -> PeerStore {
+        let ps = PeerStore {
+            peers: vec![],
+        };
+
+        ps
+    }
+
     fn check_peer_req(&self, resp: &HashMap<String, Value>) -> Result<bool, String> {
         let dis_peers = self.get_disconn_peers();
         if dis_peers.is_err() {

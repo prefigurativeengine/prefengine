@@ -17,7 +17,7 @@ not touched, for now
 const INITIATOR_CONFIRM: bool = true;
 
 use crate::core::dir;
-use crate::peer_server::Server;
+use crate::peer_server::Client;
 use serde_json::Error as s_Error;
 
 
@@ -27,11 +27,11 @@ enum FailedReason {
     MsgTooBig
 }
 
-pub fn process_local_change(changes: String, server: &mut Server) -> Result<(), String> {
+pub fn process_local_change(changes: String, client: &mut Client) -> Result<(), String> {
     let mut fail_reason: Option<FailedReason> = None;
     validate_local_chg(&changes, fail_reason);
 
-    if let Err(err) = send_chg_to_overlay(&changes, server) {
+    if let Err(err) = send_chg_to_overlay(&changes, client) {
         return Err(err)
     }
     
@@ -42,8 +42,8 @@ pub fn process_local_change(changes: String, server: &mut Server) -> Result<(), 
     overlay_confirmation_res
 }
 
-fn send_chg_to_overlay(chg: &str, server: &mut Server) -> Result<(), String> {
-    return server.send_db_change(chg.to_owned());
+fn send_chg_to_overlay(chg: &str, client: &mut Client) -> Result<(), String> {
+    return client.send_db_change(chg.to_owned());
 }
 
 fn listen_for_confirm_fin() -> Result<(), String> {

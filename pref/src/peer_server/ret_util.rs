@@ -20,7 +20,7 @@ pub fn gen_config(
             config.set("reticulum", "share_instance", Some("No".to_owned()));
         }
 
-        peer::PeerCapability::Server | peer::PeerCapability::PtpRelay => {
+        peer::PeerCapability::Client | peer::PeerCapability::PtpRelay => {
             config.set("reticulum", "enable_transport", Some("Yes".to_owned()));
         }
 
@@ -32,11 +32,11 @@ pub fn gen_config(
 
     // TODO: reticulum only supports hardcoded auth passphrases on file, later on this needs to be dynamic and not just based 
     // off a file
-    config.set("TCP Server Interface", "passphrase", Some(auth_pass));
+    config.set("TCP Client Interface", "passphrase", Some(auth_pass));
 
     match ipv6_addr {
         Some(addr) => {
-            config.set("TCP Server Interface", "listen_ip", Some(addr.to_string()));
+            config.set("TCP Client Interface", "listen_ip", Some(addr.to_string()));
             config.set("TCP Client Interface", "target_host", Some(addr.to_string()));    
         }
         _ => {}
