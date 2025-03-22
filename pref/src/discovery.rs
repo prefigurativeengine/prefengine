@@ -47,7 +47,6 @@ impl Error for NetError {}
 use std::error::Error;
 use log::error;
 use easy_upnp::{add_ports, delete_ports, PortMappingProtocol, UpnpConfig};
-use reqwest::dns::Name;
 use crate::core::PREF_PEER_PORT;
 
 

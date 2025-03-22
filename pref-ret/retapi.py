@@ -79,10 +79,10 @@ class RNSApi:
         # init request and reticulum
         action: str = json_req["action"]
         
-        if action == "fo_reconnect"
+        if action == "fo_reconnect":
             self.fo_reconnect(json_req["id"])
         
-        if action == "send"
+        if action == "send":
             if not json_req["id"]:
                 print("id in JSON not set.")
                 return
@@ -261,10 +261,10 @@ if __name__ == "__main__":
     # TODO: make this path concat better
     config_p = os.getcwd() + "\\" + "reticulum_config.conf"
 
-    if len(sys.argv) = 1:
+    if len(sys.argv) == 1:
         start_api(True)
 
-    elif len(sys.argv) = 0:
+    elif len(sys.argv) == 0:
         start_api(False)
 
     else:

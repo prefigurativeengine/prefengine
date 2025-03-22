@@ -1,24 +1,9 @@
-/*
-
-have single json file for protype, which has various entities, which contains arbitrary number of 
-keys and values. there will be crud methods for entity values and kv's. accordant net msgs will be 
-done at end of method with json str
-
-the ddb system as a whole will intake data from the sandbox, and do two things with the userinput; 
-submitting the data changes to the local cache/stash (maybe able to be temporarily on disk), then 
-once checks are done there, the data changes are submitted to the network. once confirmation is 
-finished from that server, changes are saved to actual local database.
-
-this process happens in reverse (starting from server) for recieving data changes, except sandbox is 
-not touched, for now
-
-*/
-
-const INITIATOR_CONFIRM: bool = true;
 
 use crate::core::dir;
 use crate::peer_server::Client;
 use serde_json::Error as s_Error;
+
+const INITIATOR_CONFIRM: bool = true;
 
 
 enum FailedReason {

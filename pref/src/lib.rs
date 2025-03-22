@@ -15,11 +15,4 @@ pub mod core;
 mod discovery;
 mod peer_server;
 
-pub trait Server {
-    async fn run(&self);
-}
 
-// TODO: maybe avoid generics
-pub async fn main<T>(s: Box<T>) where T: Server {
-    s.run().await;
-}

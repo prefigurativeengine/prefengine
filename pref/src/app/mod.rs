@@ -2,7 +2,6 @@ use crate::{core, peer_server};
 
 use std::env;
 use std::io::Read;
-use std::os::windows::io::AsHandle;
 use std::path::Path;
 use std::fs;
 use std::str::FromStr;
@@ -11,8 +10,7 @@ use std::sync::Arc;
 use std::thread::sleep;
 use std::time;
 use crate::discovery;
-use crate::discovery::{ DiscoveryError, NATConfig };
-use libp2p::{Multiaddr};
+use crate::discovery::{ NATConfig };
 use std::net::{IpAddr, Ipv4Addr};
 use std::process::{Command, Child};
 use peer_server::ret_util;
@@ -129,7 +127,7 @@ impl Application
                 log::info!("UPnP port disabled");
             }
             Err(msg) => {
-                log::error!("Failed to disable UPnP port");
+                log::error!("Failed to disable UPnP port: {}", msg);
             }
         }
     }

@@ -30,7 +30,7 @@ pub fn gen_config(
     // TODO: when loglevel is actually implemented for prefengine, make the prefengine loglevel match reticulum's tiers
     config.set("logging", "loglevel", Some(log_level.to_string()));
 
-    // TODO: reticulum only supports hardcoded auth passphrases on file, later on this needs to be dynamic and not just based 
+    // TODO: reticulum only supports hardcoded auth passphrases on file, later on this needs to be env var and not just based 
     // off a file
     config.set("TCP Client Interface", "passphrase", Some(auth_pass));
 

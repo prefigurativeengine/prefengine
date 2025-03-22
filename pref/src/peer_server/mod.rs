@@ -16,6 +16,10 @@ use db as peer_db;
 
 pub mod ret_util;
 
+use serde_json::{Result as s_Result};
+use serde_json::Error as s_Error;
+use std::sync::Mutex;
+
 const RET_URL: &str = "127.0.0.1:3502";
 const PREF_URL: &str = "127.0.0.1:3501";
 
@@ -29,16 +33,10 @@ pub struct Client {
 const FO_RECONNECT_ACTION: &str = "fo_reconnect";
 const SEND_ACTION: &str = "send";
 
-use serde_json::{Result as s_Result};
-use serde_json::Error as s_Error;
-use std::sync::Mutex;
+
 impl Client {
     pub fn new(ps: &Arc<Mutex<PeerStore>>) -> Client {
         let client = Client {
-            // listener: Listener {
-            //     inner_listener: TcpListener::bind(PREF_URL)
-            //     .expect("Could not start the reticulum listener")
-            // },
             ret_api_conn: TcpStream::connect(RET_URL)
                 .expect("Could not connect to reticulum"),
             peers: Arc::clone(ps),
@@ -49,19 +47,6 @@ impl Client {
 
     pub fn start(&mut self) {
         self.peer_connect_all();
-
-        // let listener_inst = Arc::clone(&self);
-        // needs Arc or Arc<Mutex>
-        // thread::spawn(|| {
-        //     let lisner = Listener {
-        //         inner_listener: TcpListener::bind(PREF_URL)
-        //             .expect("Could not start the reticulum listener")
-        //     }
-
-		// 	lisner.start(Arc::new(
-        //         Mutex::new(self)
-        //     ));
-		// });
     }  
 
     pub fn send_db_change(&mut self, change: String) -> Result<(), String> {
@@ -141,65 +126,6 @@ impl Client {
     fn ret_send(&mut self, data: String) -> Result<usize, std::io::Error> {
         return self.ret_api_conn.write(data.as_bytes());
     }
-
-    
-    // fn ret_listen(&self) {
-    //     for stream in self.ret_api_listener.incoming() {
-    //         match stream {
-    //             Ok(stream) => {
-    //                 let mut buf = String::new();
-
-    //                 match stream.read_to_string(&mut buf) {
-    //                     Ok(usize) => {
-    //                         Client::dispatch_ret_resp(buf);
-    //                     }
-
-    //                     Err(err) => {
-    //                         log::error!("Failed to decode ret proxy message: {}", err);
-    //                     }
-    //                 }
-    //             },
-    //             Err(error_s) => log::error!("Error when tried to use stream: {}", error_s),
-    //         }
-    //     }
-    // }
-
-    // fn dispatch_ret_resp(resp: String) -> Result<(), String> {
-    //     // HACK
-    //     let new_peer = "{""action"":""new_peer";
-    //     let resc_fin = "{""action"":""resc_fin";
-
-    //     match &resp[0..19] {
-    //         new_peer => {
-    //             let serde_res: Result<HashMap<String, Value>, Error> = serde_json::from_str(&resp);
-    //             if matches!(serde_res, Some(_)) {
-    //                 let serde_j = serde_res.unwrap();
-    //                 if self.check_peer_req(serde_j) {
-    //                     self.add_peer(serde_j);
-    //                 }
-    //             } else {
-    //                 log::error!("Failed to decode ret proxy message into json: {}", serde_res.unwrap());
-    //                 Err("Failed to decode ret proxy message into json".to_owned())
-    //             }
-    //         },
-    //         resc_fin => {
-    //             peer_db::process_remote_change(resp);
-    //         }
-    //     }
-    // }
-
-    // fn on_new_peer_connect(&self, stream: TcpStream) {
-    //     // check if a valid ip addr
-    //     if self.valid_peer_addrs.contains(stream.peer_addr()) {
-    //         // add as connection
-    //     } else {
-    //         // if not a valid ip, peek msg to see full of identity of remote 
-    //         stream.read_timeout();
-    //         // if invalid identity, drop
-
-    //         // if valid, add as connection and update ip addr
-    //     }
-    // }
 
     fn try_traversal_methods() {
 
