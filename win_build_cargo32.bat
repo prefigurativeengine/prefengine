@@ -3,7 +3,7 @@
 REM Check if the argument is provided
 @REM if "%~1" == "" (
 @REM     echo Please provide the name of the Cargo package.
-@REM     exit /b
+@REM     exit \b
 @REM )
 
 REM Set the environment variable CARGO_TARGET_DIR
@@ -11,6 +11,9 @@ REM set "CARGO_TARGET_DIR=%cd%\%1\target\32"
 set "RUSTFLAGS=-C prefer-dynamic"
 
 REM cd %1
+
+copy "pref-ret\retapi.py" "build\i686-pc-windows-msvc\debug"
+copy "pref-ret\reticulum_dummy_config.conf" "build\i686-pc-windows-msvc\debug"
 
 REM Call the cargo build command
 cargo build --workspace --target i686-pc-windows-msvc --target-dir build

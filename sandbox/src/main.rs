@@ -1,12 +1,8 @@
-
 extern crate pref;
-use std::future::IntoFuture;
 
 use pref::{ app::Application };
 use tokio;
-use std::thread as thread;
 
-// TODO: simplify startup procedure; no run method 
 pub struct Sandbox {
     eng: Application
 }

@@ -40,7 +40,8 @@ impl Application
             log::info!("Auto port-forward enabled");
         } 
         else {
-            panic!("Auto port-forward failed, aborting");
+            // TODO: add some sort of message to confirm manual portforwarding
+            log::info!("Auto port-forward failed, assuming manual portforward has been done");
         }
  
         let self_p_r = peer_server::peer::SelfPeerInfo::load_self_peer();
