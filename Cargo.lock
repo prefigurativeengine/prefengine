@@ -2815,6 +2815,7 @@ dependencies = [
  "axum",
  "log",
  "pref",
+ "serde_json",
  "simple_logger",
  "tokio",
 ]

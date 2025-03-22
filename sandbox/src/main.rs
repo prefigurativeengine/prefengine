@@ -23,5 +23,5 @@ mod webserver;
 #[tokio::main]
 async fn main() {
     let s: Sandbox = Sandbox::new().await;
-    webserver::start(s);
+    webserver::start(s).await;
 }

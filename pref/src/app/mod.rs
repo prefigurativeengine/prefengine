@@ -34,9 +34,6 @@ impl Application
         core::pref_log::init_styled_logger();
         log::info!("Initialized log");
         
-        // TODO: make this not mut
-        let mut ext_addr = Ipv4Addr::from_str("127.0.0.1").expect("no");
-        let mut upnp_success = false;
         let nat_conf = NATConfig::new();
         
         if nat_conf.auto_port_forward {
@@ -133,11 +130,11 @@ impl Application
     }
 
 
-    pub fn get_db_data() -> Result<String, String> {
+    pub fn get_db_data(&self) -> Result<String, String> {
         return peer_server::db::db_to_str();
     }
 
-    pub fn set_db_data(new_data: String) -> Result<(), String> {
+    pub fn set_db_data(&self, new_data: String) -> Result<(), String> {
         return peer_server::db::append_chg(&new_data);
     }
 
