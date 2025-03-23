@@ -2,6 +2,7 @@ use crate::{core, peer_server};
 
 use std::env;
 use std::io::Read;
+use std::io::Write;
 use std::path::Path;
 use std::fs;
 use std::str::FromStr;
@@ -43,7 +44,42 @@ impl Application
             // TODO: add some sort of message to confirm manual portforwarding
             log::info!("Auto port-forward failed, assuming manual portforward has been done");
         }
- 
+
+        let first_start = Application::is_first_time();
+
+        if first_start {
+            if let Err(err) = Self::first_start_pyret() {
+                panic!("First starting reticulum API failed: {}", err);
+            }
+        } 
+
+        let ret_r = Self::start_pyret();
+        if let Err(err) = ret_r {
+            panic!("Starting reticulum API failed: {}", err);
+        }
+
+        let ret = ret_r.unwrap();
+
+        let ps: Arc<Mutex<PeerStore>> = Arc::new(
+            Mutex::new(
+                PeerStore::new()
+            )
+        );
+
+        let listen_inst = peer_server::Listener::new(&ps);
+        let client_inst = peer_server::Client::new(&ps);
+
+        return Application {
+            nat: nat_conf,
+            ret_process: ret,
+            online_peers: ps,
+            client: client_inst,
+            listener: listen_inst
+        };
+    }
+    
+
+    fn gen_ret_config() {
         let self_p_r = peer_server::peer::SelfPeerInfo::load_self_peer();
         if let Err(err) = self_p_r {
             panic!("Getting self peer failed: {}", err);
@@ -63,58 +99,6 @@ impl Application
                 panic!("Reticulum configuration failed: {}", err);
             }
         }
-
-        let first_start = Application::is_first_time();
-
-        let ret_args = {
-            if first_start {
-                vec!["retapi.py", "first_start"]
-            } else {
-                vec!["retapi.py"]
-            }
-        };
-
-        let mut ret = Command::new("python")
-            .args(ret_args)
-            .spawn()
-            .expect("failed to execute retapi.py");
-
-        // TODO: make timeout
-        loop {
-            match ret.stdout.take() {
-                Some(mut retout) => {
-                    let mut buffer = String::new();
-                    let res = retout.read_to_string(&mut buffer)
-                        .expect("failed to read first stdout from retapi.py");
-
-                    if buffer.starts_with("Client listening") {
-                        log::info!("Recieved Reticulum API listening message");
-                        break;
-                    }
-                },
-                None => {
-                    sleep(time::Duration::from_millis(500));
-                }
-            }
-        }
-
-        
-        let ps: Arc<Mutex<PeerStore>> = Arc::new(
-            Mutex::new(
-                PeerStore::new()
-            )
-        );
-
-        let listen_inst = peer_server::Listener::new(&ps);
-        let client_inst = peer_server::Client::new(&ps);
-
-        return Application {
-            nat: nat_conf,
-            ret_process: ret,
-            online_peers: ps,
-            client: client_inst,
-            listener: listen_inst
-        };
     }
 
     pub fn stop() {
@@ -128,6 +112,89 @@ impl Application
                 log::error!("Failed to disable UPnP port: {}", msg);
             }
         }
+    }
+
+    fn first_start_pyret() -> Result<(), String> {
+        let ret_r = Command::new("python")
+            .args(["retapi.py", "first_start"])
+            .spawn();
+        
+        if let Err(err) = ret_r {
+            return Err(err.to_string());
+        }
+    
+        let mut ret = ret_r.unwrap();
+        // TODO: make timeout
+        loop {
+            match ret.stdout.take() {
+                Some(mut retout) => {
+                    let mut buffer = String::new();
+                    let res_r = retout.read_to_string(&mut buffer);
+
+                    if let Err(err) = res_r {
+                        return Err(err.to_string());
+                    }
+                    let res = res_r.unwrap();
+
+                    if buffer.starts_with("hash:") {
+                        log::info!("Recieved Reticulum API listening message");
+
+                        Application::gen_ret_config();
+                        break;
+                    }
+                }, 
+                None => {
+                    sleep(time::Duration::from_millis(500));
+                }
+            }
+
+            match ret.stdin.take() {
+                Some(mut retin) => {
+                    // let python know config is finished
+                    retin.write(b"input");
+
+                    // TODO: handle bad results, but unlikely
+                    let _result = ret.wait().unwrap();
+                }, 
+                None => {
+                    sleep(time::Duration::from_millis(5));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn start_pyret() -> Result<Child, String> {
+        let ret_r = Command::new("python")
+            .args(["retapi.py"])
+            .spawn();
+        
+        if let Err(err) = ret_r {
+            return Err(err.to_string());
+        }
+    
+        let mut ret = ret_r.unwrap();
+        loop {
+            match ret.stdout.take() {
+                Some(mut retout) => {
+                    let mut buffer = String::new();
+                    let res_r = retout.read_to_string(&mut buffer);
+
+                    if let Err(err) = res_r {
+                        return Err(err.to_string());
+                    }
+                    let res = res_r.unwrap();
+                    if buffer.starts_with("Server listening") {
+                        log::info!("Recieved Reticulum API listening message");
+                        break;
+                    }
+                }, 
+                None => {
+                    sleep(time::Duration::from_millis(500));
+                }
+            }
+        }
+        Ok(ret)
     }
 
 

@@ -3,6 +3,8 @@ import socket
 import json
 import os
 
+APP_NAME = 'prefengine'
+ASPECTS = ['main']
 
 # TODO: mark private methods, add timeouts, make async
 class RNSApi:
@@ -15,20 +17,13 @@ class RNSApi:
     peer_conns: dict[str, RNS.Link]
 
     client_socket: socket.socket
-    APP_NAME: str
     ret_instance: RNS.Reticulum
 
-    def __init__(self, name, config_p, first_start: bool):
-        self.APP_NAME = name
-
+    def __init__(self, config_p):
         self.ret_instance = RNS.Reticulum(configdir=config_p)
         
         # TODO: use env variables
-        if first_start:
-            self.identity = RNS.Identity()
-            self.identity.to_file('secretid')
-        else:
-            self.identity = RNS.Identity.from_file('secretid')
+        self.identity = RNS.Identity.from_file('secretid')
 
         # two sides of the same theoretical endpoint
         self.create_new_peer_dest()
@@ -72,21 +67,17 @@ class RNSApi:
             print("action in JSON not a string.")
             return
         
-        if not json_req["id"]:
-            print("id in JSON not set.")
-            return
-        
         # init request and reticulum
         action: str = json_req["action"]
         
         if action == "fo_reconnect":
-            self.fo_reconnect(json_req["id"])
-        
-        if action == "send":
             if not json_req["id"]:
                 print("id in JSON not set.")
                 return
             
+            self.fo_reconnect(json_req["id"])
+        
+        if action == "send":
             if not json_req["change"]:
                 print("change in JSON not set.")
                 return
@@ -95,7 +86,7 @@ class RNSApi:
                 print("change in JSON not an object.")
                 return
             
-            self.send_remote_res(json_req["id"], json_req["change"])
+            self.send_remote_res(json_req["change"])
 
 
     def create_reconnect_dest(self):
@@ -106,7 +97,8 @@ class RNSApi:
             self.identity,
             RNS.Destination.OUT,
             RNS.Destination.SINGLE,
-            self.APP_NAME,
+            APP_NAME,
+            ASPECTS
         )
 
         # TODO: test the computational and bandwidth cost of proving all 
@@ -124,7 +116,8 @@ class RNSApi:
             self.identity,
             RNS.Destination.IN,
             RNS.Destination.SINGLE,
-            self.APP_NAME,
+            APP_NAME,
+            ASPECTS
         )
 
         # TODO: test the computational and bandwidth cost of proving all 
@@ -148,23 +141,11 @@ class RNSApi:
 
         # only put in conn dict if a valid peer
         if resp["accepted"] == 0:
-
-            # TODO: use remote identified callback here..
-            while True:
-                get_id_result = link.get_remote_identity()
-
-                if get_id_result == None:
-                    continue
-                else:
-                    # TODO: use accept_app
-                    link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
-                    link.set_resource_concluded_callback(self.handle_remote_res_fin)
-
-                    # TODO: send another req to rust to save parent id (to also confirm 
-                    # the identity is also apart of the group) 
-                    pub_key = get_id_result.get_public_key()
-                    self.peer_conns[str(pub_key)] = link
-                    break
+            self.peer_conns[link.destination.hash] = link
+            
+            # TODO: use accept_app
+            link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
+            link.set_resource_concluded_callback(self.handle_remote_res_fin)
 
         else:
             link.teardown()
@@ -179,11 +160,12 @@ class RNSApi:
         self.client_send_from_remote_thread(r_data)
 
 
-    def send_remote_res(self, remote_id, data):
-        res = RNS.Resource(data, self.peer_conns[remote_id])
+    def send_remote_res(self, data):
+        for id in self.peer_conns.keys():
+            res = RNS.Resource(data, self.peer_conns[id])
 
-        # TODO: add msg back to rust client if res was accepted or not
-        res.advertise()
+            # TODO: add msg back to rust client if res was accepted or not
+            res.advertise()
 
     
     def fo_reconnect(self, id):
@@ -253,19 +235,29 @@ class RNSApi:
 
 import sys
 
-def start_api(first_start):
-    api = RNSApi('prefengine', config_p, first_start)
+def start_api(config_p):
+    api = RNSApi('prefengine', config_p)
     api.client_listen()
 
 if __name__ == "__main__":
     # TODO: make this path concat better
     config_p = os.getcwd() + "\\" + "reticulum_config.conf"
+    home_p = os.path.expanduser('~') + '\\'
 
     if len(sys.argv) == 1:
-        start_api(True)
+        test_instance = RNS.Reticulum(configdir='reticulum_dummy_config.conf')
+
+        identity = RNS.Identity()
+        identity.to_file(home_p + 'prefengine-secret')
+
+        # sends self peer id to rust, then wait until config is generated by rust
+        print('hash:' + RNS.Destination.hash(identity, APP_NAME, ASPECTS))
+        input()
+
+        sys.exit(0)
 
     elif len(sys.argv) == 0:
-        start_api(False)
+        start_api(config_p)
 
     else:
         print('too many arguments', file=sys.stderr)
