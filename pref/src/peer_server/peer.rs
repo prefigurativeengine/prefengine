@@ -1,5 +1,4 @@
 
-// TODO: seperate mutable network info from peerinfo
 pub struct RemotePeer {
     pub state: PeerState,
     pub info: RemotePeerInfo
@@ -26,27 +25,19 @@ pub struct RemotePeerInfo {
 }
 
 use crate::core::dir;
-use std::net::{IpAddr, Ipv4Addr};
-use std::str::FromStr;
+use std::net::{IpAddr};
 use std::{fs, path::PathBuf};
-use std::path;
+use std::path::{self, Path};
 
 impl RemotePeerInfo {
     pub fn load_remote_peers() -> Result<Vec<RemotePeerInfo>, String> {
-
-        match dir::get_root_file_path("peers.json") {
-            Ok(peers_str) => {
-                // TODO: ensure to filter out local peer
-                let mut disk_peers: Vec<RemotePeerInfo> = RemotePeerInfo::get_peers_from_disk(peers_str)
-                    .expect("Failed to parse peers json.");
-                return Ok(disk_peers);
-            }
-
-            Err(err) => {
-                return Err(err)
-            }
-
+        let disk_peers_r = RemotePeerInfo::get_peers_from_disk("peers.json");
+        if let Err(err) = disk_peers_r {
+            return Err(err);
         }
+        
+        let disk_peers = disk_peers_r.unwrap();
+        Ok(disk_peers)
     }
 
 
@@ -86,35 +77,21 @@ impl RemotePeerInfo {
     }
 
 
-    fn get_peers_from_disk(peer_path: PathBuf) -> Result<Vec<RemotePeerInfo>, String> 
+    fn get_peers_from_disk(peer_path: &str) -> Result<Vec<RemotePeerInfo>, String> 
     {
-        if (path::Path::new(&peer_path).exists()) {
-            let peer_json_r = fs::read_to_string(peer_path);
-            if let Err(err) = peer_json_r {
-                return Err(err.to_string()) 
-            }
-
-            let json_array: Vec<RemotePeerInfo> =
-                serde_json::from_str(&peer_json_r.unwrap()).expect("peers JSON was not well-formatted");
-
-            // let pi1 = RemotePeerInfo {
-            //     p_type: PeerType::Remote,
-            //     network_space: NetworkSide {
-            //         addr: PeerAddress {
-            //             ip: Some(IpAddr::V4(Ipv4Addr::from_str("s").expect("msg")),
-            //             bt: None
-            //         }
-            //     },
-            //     capability_type: PeerCapability::Desktop,
-            // };
-
-            return Ok(json_array);
+        let peer_json_r = fs::read_to_string(peer_path);
+        if let Err(err) = peer_json_r {
+            return Err(err.to_string()) 
         }
 
-        else {
-            fs::File::create(peer_path).expect("Unable to create json peers file");
-            return Ok(vec![]);
+        let json_array_r =
+            serde_json::from_str(&peer_json_r.unwrap());
+
+        if let Err(err) = json_array_r {
+            return Err(err.to_string());
         }
+    
+        return Ok(json_array_r.unwrap());
     }
 
 }
@@ -126,8 +103,7 @@ impl RemotePeerInfo {
 #[derive(serde::Serialize)]
 #[derive(Clone)]
 pub struct PeerId {
-    pub p_id: String,
-    pub c_id: String
+    pub hash: String,
 }
 
 #[derive(serde::Deserialize)]
@@ -171,55 +147,36 @@ pub struct SelfPeerInfo {
 
 impl SelfPeerInfo {
     pub fn load_self_peer() -> Result<SelfPeerInfo, String> {
-        match dir::get_root_file_path("self_peer.json") {
-            Ok(peer_p) => {
-                let mut disk_peer: SelfPeerInfo = SelfPeerInfo::get_self_peer_from_disk(peer_p)
-                    .expect("Failed to parse peer json.");
-                return Ok(disk_peer);
-            }
-    
-            Err(err) => {
-                return Err(err)
-            }
-    
+        let self_peer_exists = Path::new("self_peer.json").exists();
+
+        let disk_peer_r = if self_peer_exists {
+            SelfPeerInfo::get_self_peer_from_disk("self_peer.json")
+        } else {
+            SelfPeerInfo::get_self_peer_from_disk("self_peer.dummy.json")
+        };
+
+        if let Err(err) = disk_peer_r {
+            return Err(err);
         }
+        
+        let disk_peer = disk_peer_r.unwrap();
+        Ok(disk_peer)
     }
     
-    fn get_self_peer_from_disk(peer_path: PathBuf) -> Result<SelfPeerInfo, String> 
+    fn get_self_peer_from_disk(peer_path: &str) -> Result<SelfPeerInfo, String> 
     {
-        if (path::Path::new(&peer_path).exists()) {
-            /* 
-            TODO: unhack this
-    
-            let peer_json = fs::read_to_string(peer_path);
-    
-            if (peer_json.is_empty()) {
-                return None;
-            }
-    
-            let json_obj: RemotePeerInfo =
-                serde_json::from_str(&peer_json).expect("peers JSON was not well-formatted");
-    
-            }
-            */
-    
-            let pi1 = SelfPeerInfo {
-                id: PeerId { p_id: "test".to_owned(), c_id: "test".to_owned() },
-                addr: PeerAddress {
-                    ip: Some(IpAddr::V4(Ipv4Addr::from_str("s").expect("msg"))),
-                    bt: None
-                },
-                cap_type: PeerCapability::Desktop,
-                disk: DiskInfo {}
-            };
-    
-            return Ok(pi1);
+        let peer_json_r = fs::read_to_string(peer_path);
+        if let Err(err) = peer_json_r {
+            return Err(err.to_string());
         }
-    
-        else {
-            fs::File::create(peer_path).expect("Unable to create json peers file");
-            return Err("Self peer file doesn't exist".to_owned());
+
+        let peer_json = peer_json_r.unwrap();
+        let json_obj_r = serde_json::from_str(&peer_json);
+        if let Err(err) = json_obj_r {
+            return Err(err.to_string());
         }
+        
+        Ok(json_obj_r.unwrap())
     }
 }
 

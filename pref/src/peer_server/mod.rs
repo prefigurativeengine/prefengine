@@ -25,7 +25,6 @@ const PREF_URL: &str = "127.0.0.1:3501";
 
 
 pub struct Client {
-    //listener: Listener,
     ret_api_conn: net::TcpStream,
     peers: Arc<Mutex<PeerStore>>,
 }
@@ -72,7 +71,7 @@ impl Client {
             for peer in peers {
                 match self.peer_connect(&peer) {
                     Ok((_)) => {
-                        log::info!("Sent reconnect msg to reverse proxy for {}", peer.id.p_id);
+                        log::info!("Sent reconnect msg to reverse proxy for {}", peer.id.hash);
                     },
         
                     Err(error_s) => {
@@ -90,7 +89,7 @@ impl Client {
     fn peer_connect(&mut self, peer: &RemotePeerInfo) -> Result<usize, std::io::Error> {
         // TODO: run through a list of connection tactics according to values in peerinfo 
 
-        let id_cpy = peer.id.p_id.clone();    
+        let id_cpy = peer.id.hash.clone();    
         let json_s_r = Client::format_for_ret(Some(id_cpy), FO_RECONNECT_ACTION, None);
         if let Err(err) = json_s_r {
             let err_obj = std::io::Error::new(std::io::ErrorKind::Other, err);
@@ -232,7 +231,7 @@ impl PeerStore {
         for peer in dis_peers.unwrap() {
             if let Some(id_val) = resp.get("id") {
                 if let Value::String(id_s) = id_val {
-                    if peer.id.c_id == *id_s {
+                    if peer.id.hash == *id_s {
                         return Ok(true);
                     }
                 } 
@@ -258,7 +257,7 @@ impl PeerStore {
         for p_info in disconn_peers_res.unwrap() {
             if let Some(id) = new_peer.get("id") {
                 if let Value::String(id_s) = id {
-                    if p_info.id.c_id == *id_s {
+                    if p_info.id.hash == *id_s {
                         let disk_clone = p_info.clone();
                         new_p = RemotePeer::new(p_info);
                         self.peers.push(new_p);
@@ -294,11 +293,11 @@ impl PeerStore {
         for peer_info in p_infos {
             // brute forcing, but peers in a given overlay have upper limit of 150
 
-            let current_id = &peer_info.id.p_id;
+            let current_id = &peer_info.id.hash;
             let mut found = false;
 
             for online_peer in &self.peers {
-                if *current_id == online_peer.info.id.p_id {
+                if *current_id == online_peer.info.id.hash {
                     found = true;
                 }
             }
