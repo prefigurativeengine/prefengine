@@ -21,13 +21,18 @@ impl RemotePeer {
 pub struct RemotePeerInfo {
     pub id: PeerId,
     pub addr: PeerAddress,
-    cap_type: PeerCapability
+    cap_type: PeerCapability,
 }
 
+use serde_json::{json, Value};
+
 use crate::core::dir;
-use std::net::{IpAddr};
+use std::collections::HashMap;
+use std::net::{IpAddr, Ipv4Addr};
 use std::{fs, path::PathBuf};
 use std::path::{self, Path};
+
+// TODO: refactor to make peer info management like PeerStore (encapsulated collections)
 
 impl RemotePeerInfo {
     pub fn load_remote_peers() -> Result<Vec<RemotePeerInfo>, String> {
@@ -94,16 +99,25 @@ impl RemotePeerInfo {
         return Ok(json_array_r.unwrap());
     }
 
+    pub fn get_next_unique_id() -> Result<u16, String> {
+        let disk_peers_r = RemotePeerInfo::get_peers_from_disk("peers.json");
+        if let Err(err) = disk_peers_r {
+            return Err(err);
+        }
+        
+        Ok((disk_peers_r.unwrap().len() + 1) as u16)
+    }
+
 }
 
 // TODO: impl all of peer model
 
-// stores two ids, c_id serves as reticulum destination hash and is created from p_id, a reticulum identity
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
 #[derive(Clone)]
 pub struct PeerId {
-    pub hash: String,
+    // reticulum dest hashes will be used for identifying peers in other overlays 
+    pub value: u16,
 }
 
 #[derive(serde::Deserialize)]
@@ -132,6 +146,7 @@ enum PeerState {
 #[derive(Clone)]
 pub struct PeerAddress {
     pub ip: Option<IpAddr>,
+    pub dest_hash: String,
     pub bt: Option<String>
 }
 
@@ -141,11 +156,67 @@ pub struct SelfPeerInfo {
     pub id: PeerId,
     pub addr: PeerAddress,
     pub cap_type: PeerCapability,
-    disk: DiskInfo
+    pub disk: DiskInfo
 }
 
-
+use serde_json::{Error as s_Error, Number, Map};
 impl SelfPeerInfo {
+    // TODO: clean this function up, and support ipv6
+    pub fn construct_self_peer(cap: PeerCapability, ip: Ipv4Addr) -> Result<SelfPeerInfo, String> {
+        let self_path = Path::new("self_peer.dummy.json");
+
+        let dummy_str_r = fs::read_to_string(self_path);
+        if let Err(err) = dummy_str_r {
+            return Err(err.to_string());
+        }
+        let dummy_str = dummy_str_r.unwrap();
+
+        let self_map_r: Result<HashMap<String, Value>, s_Error> = serde_json::from_str(&dummy_str);
+        if let Err(err) = self_map_r {
+            return Err(err.to_string());
+        }
+
+        let mut self_map = self_map_r.unwrap();
+
+        let id_r = RemotePeerInfo::get_next_unique_id();
+        if let Err(err) = id_r {
+            return Err(err);
+        }
+
+        let id = id_r.unwrap();
+        *self_map.get_mut("id").unwrap() = Value::Number(
+            Number::from(id)
+        );
+
+        *self_map.get_mut("addr").unwrap() = Value::Object(Map::from_iter([
+            ("ip".to_owned(), Value::String(ip.to_string())),
+            ("bt".to_owned(), Value::Null),
+        ]));
+
+        let cap_str_r = serde_json::to_string(&cap);
+        if let Err(err) = cap_str_r {
+            return Err(err.to_string());
+        }
+
+        let cap_str = cap_str_r.unwrap();
+
+        *self_map.get_mut("cap_type").unwrap() = Value::String(cap_str);
+        *self_map.get_mut("disk").unwrap() = json!({});
+
+        let self_str_r = serde_json::to_string(&self_map);
+        if let Err(err) = self_str_r {
+            return Err(err.to_string());
+        }
+        
+        match fs::write(self_path, self_str_r.unwrap()) {
+            Ok(()) => {
+                let self_info: SelfPeerInfo = serde_json::from_value(serde_json::to_value(self_map).unwrap()).unwrap();
+                Ok(self_info)        
+            },
+            Err(err) => Err(err.to_string())
+        }
+    }
+
     pub fn load_self_peer() -> Result<SelfPeerInfo, String> {
         let self_peer_exists = Path::new("self_peer.json").exists();
 
@@ -183,5 +254,5 @@ impl SelfPeerInfo {
 
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
-struct DiskInfo {
+pub struct DiskInfo {
 }

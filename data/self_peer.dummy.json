@@ -1,0 +1,11 @@
+{
+    "id": {
+      "hash": "HASH"
+    },
+    "addr": {
+      "ip": "IP_ADDR",
+      "bt": "BT_ADDR"
+    },
+    "cap_type": "CAPABILITY",
+    "disk": {}
+}

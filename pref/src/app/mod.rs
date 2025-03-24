@@ -95,6 +95,7 @@ impl Application
         // TODO: reticulum authentication
         let auth_pass = "test_password".to_owned();
 
+        // TODO: support ipv6
         match ret_util::gen_config(self_p.cap_type, using_bt, 4, auth_pass, None) {
             Ok(()) => {
                 log::info!("Initialized reticulum config");
