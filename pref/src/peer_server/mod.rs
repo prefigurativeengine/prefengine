@@ -244,7 +244,6 @@ impl PeerStore {
         return Ok(false);
     }
     
-    // assumes resp is a known peer
     fn add_peer(&mut self, new_peer: HashMap<String, Value>) -> Result<(), String> {
         // add to runtime list
         let mut new_p: RemotePeer;
