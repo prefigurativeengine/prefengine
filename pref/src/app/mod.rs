@@ -60,6 +60,10 @@ impl Application
 
         let ret = ret_r.unwrap();
 
+        if let Err(err) = peer_server::db::init() {
+            panic!("Starting database failed: {}", err);
+        }
+
         let ps: Arc<Mutex<PeerStore>> = Arc::new(
             Mutex::new(
                 PeerStore::new()

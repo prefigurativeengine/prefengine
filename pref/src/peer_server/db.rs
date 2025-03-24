@@ -1,15 +1,39 @@
-
 use crate::core::dir;
+use std::path::Path;
+use std::fs::File;
 use crate::peer_server::Client;
 use serde_json::Error as s_Error;
 
+// HACK: use SQL library in future instead of csv
+
 const INITIATOR_CONFIRM: bool = true;
+const DB_NAME: &'static str = "db.csv";
 
 
 enum FailedReason {
     IncorrectVisibility,
     MsgMalformed,
     MsgTooBig
+}
+
+pub fn init() -> Result<(), String>  {
+    // create file if not exists
+    let db_path = Path::new(DB_NAME);
+    let exist_res = Path::try_exists(db_path);
+    if let Err(err) = exist_res {
+        return Err(err.to_string())
+    }
+
+    let exist = exist_res.unwrap();
+    if exist {
+        Ok(())
+    } else {
+        let res = File::create(DB_NAME);
+        if let Err(err) = res {
+            return Err(err.to_string())
+        }
+        Ok(())
+    }
 }
 
 pub fn process_local_change(changes: String, client: &mut Client) -> Result<(), String> {
@@ -135,7 +159,7 @@ fn write_remote_chg(msg: &HashMap<String, Value>) -> Result<(), String> {
 pub fn append_chg(chg: &str) -> Result<(), String>  {
     // TODO: maybe change this to a command sent to a db thread
 
-    let db_path_res = dir::get_root_file_path("db.csv");
+    let db_path_res = dir::get_root_file_path(DB_NAME);
     match db_path_res {
         Ok(db_path) => {
             let db_csv_r = std::fs::read_to_string(&db_path);
@@ -164,7 +188,7 @@ pub fn append_chg(chg: &str) -> Result<(), String>  {
 }
 
 pub fn db_to_str() -> Result<String, String> {
-    let db_path_res = dir::get_root_file_path("db.csv");
+    let db_path_res = dir::get_root_file_path(DB_NAME);
     match db_path_res {
         Ok(db_path) => {
             let db_csv_r = std::fs::read_to_string(db_path);
