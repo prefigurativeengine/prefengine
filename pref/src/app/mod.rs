@@ -1,6 +1,7 @@
+use crate::peer_server::peer::{PeerCapability, SelfPeerInfo};
 use crate::{core, peer_server};
 
-use std::env;
+use std::{env, vec};
 use std::io::Read;
 use std::io::Write;
 use std::path::Path;
@@ -12,12 +13,11 @@ use std::thread::sleep;
 use std::time;
 use crate::discovery;
 use crate::discovery::{ NATConfig };
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{AddrParseError, IpAddr, Ipv4Addr};
 use std::process::{Command, Child};
 use peer_server::ret_util;
 use peer_server::PeerStore;
-
-// instead of discov_result & external_ip, use nat part of model
+use std::error::Error;
 
 pub struct Application 
 {
@@ -26,6 +26,11 @@ pub struct Application
     listener: peer_server::Listener,
     online_peers: Arc<Mutex<PeerStore>>,
     ret_process: Child
+}
+
+struct FirstStartRet {
+    pub proc: Child,
+    pub hash: String
 }
 
 impl Application 
@@ -45,20 +50,45 @@ impl Application
             log::info!("Auto port-forward failed, assuming manual portforward has been done");
         }
 
+
         let first_start = Application::is_first_time();
 
-        if first_start {
-            if let Err(err) = Self::first_start_pyret() {
-                panic!("First starting reticulum API failed: {}", err);
-            }
-        } 
+        let ret_com = Command::new("python");
 
-        let ret_r = Self::start_pyret();
-        if let Err(err) = ret_r {
-            panic!("Starting reticulum API failed: {}", err);
+        // first init self peer values
+        let capability: PeerCapability = PeerCapability::Desktop;
+        let ip_fetch_r: Result<String, Box<dyn Error>> = discovery::get_public_ip();
+        if let Err(_) = ip_fetch_r {
+            panic!("Starting database failed");
         }
 
-        let ret = ret_r.unwrap();
+        let ip_fetch = ip_fetch_r.unwrap();
+
+        let ip_parse_r = Ipv4Addr::from_str(&ip_fetch);
+        if let Err(err) = ip_parse_r {
+            panic!("Starting database failed: {}", err);
+        }
+
+        let ip_fetch = ip_parse_r.unwrap();
+        let ret_proc: Child;
+        if first_start { 
+            match Application::first_start_ret(&capability, ret_com) {
+                Ok(ret_output) => {
+                    ret_proc = ret_output.proc;
+                    // make self peer now that we have our destination hash from python as well
+                    SelfPeerInfo::new_self_peer(capability, ip_fetch, ret_output.hash)
+                        .map_err(|e| panic!("{}", e));
+                }
+                Err(e) => panic!("Failed to first start reticulum"),
+            }
+        } else {
+            match Application::start_pyret(ret_com) {
+                Ok(ret_output) => {
+                    ret_proc = ret_output;
+                }
+                Err(e) => panic!("Failed to start reticulum"),
+            }
+        }
 
         if let Err(err) = peer_server::db::init() {
             panic!("Starting database failed: {}", err);
@@ -75,35 +105,72 @@ impl Application
 
         return Application {
             nat: nat_conf,
-            ret_process: ret,
+            ret_process: ret_proc,
             online_peers: ps,
             client: client_inst,
             listener: listen_inst
         };
     }
-    
 
-    fn gen_ret_config() {
-        let self_p_r = peer_server::peer::SelfPeerInfo::load_self_peer();
-        if let Err(err) = self_p_r {
-            panic!("Getting self peer failed: {}", err);
+    fn first_start_ret(capability: &PeerCapability, mut ret_com: Command) -> Result<FirstStartRet, String> {
+        Application::gen_ret_config(capability)?;
+        let ret_r = ret_com.args(["retapi.py", "first_start"]).spawn();
+
+        if let Err(err) = ret_r {
+            return Err(err.to_string());
         }
-        let self_p = self_p_r.unwrap();
+    
+        let mut ret = ret_r.unwrap();
 
-        let using_bt = matches!(self_p.addr.bt, Some(_));
+        match Self::get_dest_hash(&mut ret) {
+            Ok(dest_hash) => {
+                Ok(FirstStartRet {
+                    proc: ret,
+                    hash: dest_hash
+                })
+            }
+            Err(e) => Err(e)
+        }
+    }
+    
+    fn start_pyret(mut ret_com: Command) -> Result<Child, String> {
+        let ret_r = ret_com.args(["retapi.py"]).spawn();
+        
+        if let Err(err) = ret_r {
+            return Err(err.to_string());
+        }
+    
+        let mut ret = ret_r.unwrap();
+        loop {
+            match ret.stdout.take() {
+                Some(mut retout) => {
+                    let mut buffer = String::new();
+                    let res_r = retout.read_to_string(&mut buffer);
 
+                    if let Err(err) = res_r {
+                        return Err(err.to_string());
+                    }
+
+                    if buffer.starts_with("Server listening") {
+                        log::info!("Recieved Reticulum API listening message");
+                        break;
+                    }
+                }, 
+                None => {
+                    sleep(time::Duration::from_millis(500));
+                }
+            }
+        }
+        Ok(ret)
+    }
+
+
+    fn gen_ret_config(capability: &PeerCapability) -> Result<(), String> {
         // TODO: reticulum authentication
         let auth_pass = "test_password".to_owned();
 
         // TODO: support ipv6
-        match ret_util::gen_config(self_p.cap_type, using_bt, 4, auth_pass, None) {
-            Ok(()) => {
-                log::info!("Initialized reticulum config");
-            },
-            Err(err) => {
-                panic!("Reticulum configuration failed: {}", err);
-            }
-        }
+        ret_util::gen_config(capability, 4, auth_pass, None)
     }
 
     pub fn stop() {
@@ -119,19 +186,10 @@ impl Application
         }
     }
 
-    fn first_start_pyret() -> Result<(), String> {
-        let ret_r = Command::new("python")
-            .args(["retapi.py", "first_start"])
-            .spawn();
-        
-        if let Err(err) = ret_r {
-            return Err(err.to_string());
-        }
-    
-        let mut ret = ret_r.unwrap();
+    fn get_dest_hash(proc: &mut Child) -> Result<String, String> {
         // TODO: make timeout
         loop {
-            match ret.stdout.take() {
+            match proc.stdout.take() {
                 Some(mut retout) => {
                     let mut buffer = String::new();
                     let res_r = retout.read_to_string(&mut buffer);
@@ -142,66 +200,18 @@ impl Application
                     let res = res_r.unwrap();
 
                     if buffer.starts_with("hash:") {
-                        log::info!("Recieved Reticulum API listening message");
-
-                        Application::gen_ret_config();
-                        break;
+                        let hash = buffer[5..buffer.len()].to_owned();
+                        return Ok(hash)
                     }
                 }, 
                 None => {
                     sleep(time::Duration::from_millis(500));
                 }
             }
-
-            match ret.stdin.take() {
-                Some(mut retin) => {
-                    // let python know config is finished
-                    retin.write(b"input");
-
-                    // TODO: handle bad results, but unlikely
-                    let _result = ret.wait().unwrap();
-                }, 
-                None => {
-                    sleep(time::Duration::from_millis(5));
-                }
-            }
         }
-        Ok(())
     }
 
-    fn start_pyret() -> Result<Child, String> {
-        let ret_r = Command::new("python")
-            .args(["retapi.py"])
-            .spawn();
-        
-        if let Err(err) = ret_r {
-            return Err(err.to_string());
-        }
     
-        let mut ret = ret_r.unwrap();
-        loop {
-            match ret.stdout.take() {
-                Some(mut retout) => {
-                    let mut buffer = String::new();
-                    let res_r = retout.read_to_string(&mut buffer);
-
-                    if let Err(err) = res_r {
-                        return Err(err.to_string());
-                    }
-                    let res = res_r.unwrap();
-                    if buffer.starts_with("Server listening") {
-                        log::info!("Recieved Reticulum API listening message");
-                        break;
-                    }
-                }, 
-                None => {
-                    sleep(time::Duration::from_millis(500));
-                }
-            }
-        }
-        Ok(ret)
-    }
-
 
     pub fn get_db_data(&self) -> Result<String, String> {
         return peer_server::db::db_to_str();

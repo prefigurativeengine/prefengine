@@ -126,7 +126,7 @@ pub struct PeerId {
 pub enum PeerCapability {
     Desktop,
     Mobile,
-    Client,
+    Server,
     RadioRelay,
     PtpRelay
 }
@@ -162,7 +162,7 @@ pub struct SelfPeerInfo {
 use serde_json::{Error as s_Error, Number, Map};
 impl SelfPeerInfo {
     // TODO: clean this function up, and support ipv6
-    pub fn construct_self_peer(cap: PeerCapability, ip: Ipv4Addr) -> Result<SelfPeerInfo, String> {
+    pub fn new_self_peer(cap: PeerCapability, ip: Ipv4Addr, dest_hash: String) -> Result<SelfPeerInfo, String> {
         let self_path = Path::new("self_peer.dummy.json");
 
         let dummy_str_r = fs::read_to_string(self_path);
@@ -184,12 +184,15 @@ impl SelfPeerInfo {
         }
 
         let id = id_r.unwrap();
-        *self_map.get_mut("id").unwrap() = Value::Number(
-            Number::from(id)
-        );
+        *self_map.get_mut("id").unwrap() = Value::Object(
+            Map::from_iter([
+                ("value".to_owned(), Value::Number(Number::from(id))),
+        ]));
 
-        *self_map.get_mut("addr").unwrap() = Value::Object(Map::from_iter([
+        *self_map.get_mut("addr").unwrap() = Value::Object(
+            Map::from_iter([
             ("ip".to_owned(), Value::String(ip.to_string())),
+            ("dest_hash".to_owned(), Value::String(dest_hash)),
             ("bt".to_owned(), Value::Null),
         ]));
 

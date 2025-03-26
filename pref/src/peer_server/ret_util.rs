@@ -2,10 +2,10 @@
 use crate::peer_server::peer;
 use std::net::{self, Ipv4Addr, Ipv6Addr, TcpListener, TcpStream};
 use configparser::ini::Ini;
+use crate::core;
 
 pub fn gen_config(
-    c_type: peer::PeerCapability, 
-    bt: bool, 
+    c_type: &peer::PeerCapability,
     log_level: u32, 
     auth_pass: String, 
     ipv6_addr: Option<Ipv6Addr>) -> Result<(), String> {
@@ -20,7 +20,7 @@ pub fn gen_config(
             config.set("reticulum", "share_instance", Some("No".to_owned()));
         }
 
-        peer::PeerCapability::Client | peer::PeerCapability::PtpRelay => {
+        peer::PeerCapability::Server | peer::PeerCapability::PtpRelay => {
             config.set("reticulum", "enable_transport", Some("Yes".to_owned()));
         }
 
@@ -42,7 +42,15 @@ pub fn gen_config(
         _ => {}
     }
 
-    match config.write("reticulum_config.conf") {
+    let path_r = core::dir::get_global_data_path(true);
+    if let Err(err) = path_r {
+        return Err(err);
+    }
+
+    let mut path = path_r.unwrap();
+    path.push("reticulum_dummy_config.conf");
+    
+    match config.write(path) {
         Ok(()) => Ok(()),
         Err(err) => {
             Err(err.to_string())

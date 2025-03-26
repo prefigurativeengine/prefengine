@@ -1,9 +1,10 @@
 {
     "id": {
-      "hash": "HASH"
+      "value": "NUM"
     },
     "addr": {
       "ip": "IP_ADDR",
+      "dest_hash": "HASH",
       "bt": "BT_ADDR"
     },
     "cap_type": "CAPABILITY",

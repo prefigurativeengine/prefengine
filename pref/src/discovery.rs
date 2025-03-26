@@ -109,6 +109,7 @@ pub fn get_public_ip() -> Result<String, Box<dyn Error>> {
 
 
 fn get_config() -> UpnpConfig {
+    // TODO: upnp setup takes very long; try to use specific address 
     let config_no_address = UpnpConfig {
         address: None,
         port: PREF_PEER_PORT,
