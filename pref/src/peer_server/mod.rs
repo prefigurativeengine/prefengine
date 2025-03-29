@@ -53,12 +53,8 @@ impl Client {
         change_map.insert("action".to_owned(), "send".to_owned());
         change_map.insert("change".to_owned(), change);
 
-        let json_s_r = Client::format_for_ret(None, SEND_ACTION, Some(change_map));
-        if let Err(err) = json_s_r {
-            return Err(err) 
-        }
-
-        let json_s = json_s_r.unwrap();
+        let json_s = Client::format_for_ret(None, SEND_ACTION, Some(change_map))
+            .map_err(|err| err.to_string())?;
 
         match self.ret_send(json_s) {
             Ok(size) => Ok(()),
@@ -181,24 +177,18 @@ impl Listener {
 
         match &resp[0..19] {
             new_peer => {
-                let serde_res: Result<HashMap<String, Value>, s_Error> = serde_json::from_str(&resp);
+                let resp_map = serde_json::from_str(&resp)
+                    .map_err(|err| err.to_string())?;
 
-                if matches!(serde_res, Ok(_)) {
-                    let serde_j = serde_res.unwrap();
-                    let mut ps = self.peers.lock().unwrap();
-
-                    let check_res = ps.check_peer_req(&serde_j);
-                    if check_res.is_ok() {
-                        ps.add_peer(serde_j);
-                        return Ok(());
-                    } 
-                    else {
-                        return Err("Peer validation failed".to_owned());
-                    }
-                } 
+                let mut ps = self.peers.lock().unwrap();
                 
+                let check_res = ps.check_peer_req(&resp_map);
+                if check_res.is_ok() {
+                    ps.add_peer(resp_map);
+                    return Ok(());
+                } 
                 else {
-                    return Err("Failed to decode ret proxy message into json".to_owned());
+                    return Err("Peer validation failed".to_owned());
                 }
             },
             resc_fin => {

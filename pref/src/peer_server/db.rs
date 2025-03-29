@@ -19,12 +19,9 @@ enum FailedReason {
 pub fn init() -> Result<(), String>  {
     // create file if not exists
     let db_path = Path::new(DB_NAME);
-    let exist_res = Path::try_exists(db_path);
-    if let Err(err) = exist_res {
-        return Err(err.to_string())
-    }
+    let exist = Path::try_exists(db_path)
+        .map_err(|err| err.to_string())?;
 
-    let exist = exist_res.unwrap();
     if exist {
         Ok(())
     } else {
@@ -73,12 +70,9 @@ pub fn process_remote_change(changes: String) -> Result<(), String> {
     let mut fail_reason: Option<FailedReason> = None;
     validate_remote_chg(&changes, &mut fail_reason);
 
-    let change_map_r: Result<HashMap<String, Value>, s_Error> = serde_json::from_str(&changes);
-    if let Err(err) = change_map_r {
-        return Err(err.to_string());
-    }
+    let change_map: HashMap<String, Value> = serde_json::from_str(&changes)
+        .map_err(|err| err.to_string())?;
 
-    let change_map: HashMap<String, Value> = change_map_r.unwrap();
     // send success or err msg of above
     if INITIATOR_CONFIRM {
         let confirm_res: Result<(), String> = initiator_confirm(fail_reason);
@@ -162,12 +156,8 @@ pub fn append_chg(chg: &str) -> Result<(), String>  {
     let db_path_res = dir::get_root_file_path(DB_NAME);
     match db_path_res {
         Ok(db_path) => {
-            let db_csv_r = std::fs::read_to_string(&db_path);
-            if let Err(err) = db_csv_r {
-                return Err(err.to_string());
-            }
-
-            let db_csv_s: String = db_csv_r.unwrap();
+            let db_csv_s = std::fs::read_to_string(&db_path)
+                .map_err(|err| err.to_string())?;
 
             let appended_db_csv = db_csv_s + chg;
             
@@ -191,12 +181,10 @@ pub fn db_to_str() -> Result<String, String> {
     let db_path_res = dir::get_root_file_path(DB_NAME);
     match db_path_res {
         Ok(db_path) => {
-            let db_csv_r = std::fs::read_to_string(db_path);
-            if db_csv_r.is_err() {
-                return Err(("Failed to read csv".to_owned()));
-            } else {
-                return Ok(db_csv_r.unwrap())
-            }
+            let db_csv = std::fs::read_to_string(db_path)
+                .map_err(|err| err.to_string())?;
+            
+            Ok(db_csv)
         }
         Err((msg)) => {
             return Err(("Failed to get db from disk".to_owned()));

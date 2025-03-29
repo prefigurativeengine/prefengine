@@ -37,12 +37,7 @@ use std::path::{self, Path};
 
 impl RemotePeerInfo {
     pub fn load_remote_peers() -> Result<Vec<RemotePeerInfo>, String> {
-        let disk_peers_r = RemotePeerInfo::get_peers_from_disk("peers.json");
-        if let Err(err) = disk_peers_r {
-            return Err(err);
-        }
-        
-        let disk_peers = disk_peers_r.unwrap();
+        let disk_peers = RemotePeerInfo::get_peers_from_disk("peers.json")?;
         Ok(disk_peers)
     }
 
@@ -51,26 +46,16 @@ impl RemotePeerInfo {
         let peer_path_res = dir::get_root_file_path("peers.json");
         match peer_path_res {
             Ok(peer_path) => {
-                let peer_json_r = fs::read_to_string(&peer_path);
-                if let Err(err) = peer_json_r {
-                    return Err(err.to_string()) 
-                }
+                let peer_json = fs::read_to_string(&peer_path)
+                    .map_err(|err| err.to_string())?;
 
-                let peer_json = peer_json_r.unwrap();
-                let json_array_r: Result<Vec<RemotePeerInfo>, serde_json::Error> = serde_json::from_str(&peer_json);
-                if let Err(err) = json_array_r {
-                    return Err(err.to_string()) 
-                }
-
-                let mut json_array: Vec<RemotePeerInfo> = json_array_r.unwrap();
+                let mut json_array: Vec<RemotePeerInfo> = serde_json::from_str(&peer_json)
+                    .map_err(|err| err.to_string())?;
                 json_array.extend(new_peers);
 
-                let json_str_r = serde_json::to_string(&json_array);
-                if let Err(err) = json_str_r {
-                    return Err(err.to_string()) 
-                }
+                let json_str = serde_json::to_string(&json_array)
+                    .map_err(|err| err.to_string())?;
 
-                let json_str = json_str_r.unwrap();
                 match fs::write(peer_path, json_str) {
                     Ok(()) => Ok(()),
                     Err(err) => Err(err.to_string())
@@ -85,13 +70,9 @@ impl RemotePeerInfo {
 
     fn get_peers_from_disk(peer_path: &str) -> Result<Vec<RemotePeerInfo>, String> 
     {
-        let peer_json_r = fs::read_to_string(peer_path);
-        
-        if let Err(err) = peer_json_r {
-            return Err(err.to_string()) 
-        }
+        let peer_json = fs::read_to_string(peer_path)
+            .map_err(|err| err.to_string())?;
 
-        let peer_json = peer_json_r.unwrap();
         if peer_json.is_empty() {
             return Ok(vec![]);
         }
@@ -107,12 +88,9 @@ impl RemotePeerInfo {
     }
 
     pub fn get_next_unique_id() -> Result<u16, String> {
-        let disk_peers_r = RemotePeerInfo::get_peers_from_disk("peers.json");
-        if let Err(err) = disk_peers_r {
-            return Err(err);
-        }
+        let disk_peers_r = RemotePeerInfo::get_peers_from_disk("peers.json")?;
         
-        Ok((disk_peers_r.unwrap().len() + 1) as u16)
+        Ok((disk_peers_r.len() + 1) as u16)
     }
 
 }
@@ -236,29 +214,20 @@ impl SelfPeerInfo {
         } else {
             SelfPeerInfo::get_self_peer_from_disk("self_peer.dummy.json")
         };
-
-        if let Err(err) = disk_peer_r {
-            return Err(err);
-        }
         
-        let disk_peer = disk_peer_r.unwrap();
+        let disk_peer = disk_peer_r?;
         Ok(disk_peer)
     }
     
     fn get_self_peer_from_disk(peer_path: &str) -> Result<SelfPeerInfo, String> 
     {
-        let peer_json_r = fs::read_to_string(peer_path);
-        if let Err(err) = peer_json_r {
-            return Err(err.to_string());
-        }
-
-        let peer_json = peer_json_r.unwrap();
-        let json_obj_r = serde_json::from_str(&peer_json);
-        if let Err(err) = json_obj_r {
-            return Err(err.to_string());
-        }
+        let peer_json = fs::read_to_string(peer_path)
+            .map_err(|err| err.to_string())?;
         
-        Ok(json_obj_r.unwrap())
+        let json_obj = serde_json::from_str(&peer_json)
+            .map_err(|err| err.to_string())?;
+        
+        Ok(json_obj)
     }
 }
 

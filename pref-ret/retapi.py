@@ -1,3 +1,4 @@
+from typing import OrderedDict
 import RNS
 import socket
 import json
@@ -214,7 +215,8 @@ class RNSApi:
         return json.loads(data.decode('utf-8'))
     
     def convert_to_recieved_conn(self, link: RNS.Link):
-        remote_json = {'action': "new_peer"}
+        remote_json = OrderedDict()
+        remote_json['action'] = "new_peer"
         remote_json['id'] = str(base64.b64encode(link.destination.hash))
         # hardcoded to tcp for now
         remote_json['ptp_conn'] = {"physical_type": "tcp"}
@@ -222,12 +224,12 @@ class RNSApi:
         return json.dumps(remote_json)
     
     def convert_to_recieved_res(self, res: RNS.Resource):
-        remote_json = {'action': "resc_fin"}
-        
+        remote_json = OrderedDict()
+        remote_json['action'] = "resc_fin"
         r_data = str(res.data.read(), encoding='utf-8')
         remote_json['data'] = r_data
 
-        return remote_json
+        return json.dumps(remote_json)
         
 
 import sys
@@ -249,7 +251,7 @@ if __name__ == "__main__":
 
         # sends self peer id to rust
         sys.stdout = sys.__stdout__
-        hash = RNS.Destination.hash(identity, APP_NAME, ASPECTS)
+        hash = str(base64.b64encode(RNS.Destination.hash(identity, APP_NAME, ASPECTS)))
         print(hash)
 
         sys.stdout = nullout

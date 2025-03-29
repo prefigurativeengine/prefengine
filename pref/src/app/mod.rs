@@ -133,33 +133,13 @@ impl Application
 
         let hash = hash_b[5..hash_b.len()].to_owned();
 
-        // if let Err(err) = ret_r {
-        //     return Err(err.to_string());
-        // }
-    
-        // let mut ret = ret_r.unwrap();
-        // let l = ret.wait_with_output();
-        // l.unwrap();
         Ok(String::from_utf8(hash).map_err(|err| err.to_string())?)
-        // match Self::get_dest_hash(&mut ret) {
-        //     Ok(dest_hash) => {
-        //         Ok(FirstStartRet {
-        //             proc: ret,
-        //             hash: dest_hash
-        //         })
-        //     }
-        //     Err(e) => Err(e)
-        // }
     }
     
     fn start_pyret(mut ret_com: Command) -> Result<Child, String> {
-        let ret_r = ret_com.args(["retapi.py"]).spawn();
+        let ret = ret_com.args(["retapi.py"]).spawn()
+            .map_err(|err| err.to_string())?;
         
-        if let Err(err) = ret_r {
-            return Err(err.to_string());
-        }
-    
-        let ret = ret_r.unwrap();
         Ok(ret)
     }
 
@@ -184,33 +164,6 @@ impl Application
             }
         }
     }
-
-    // fn get_dest_hash(proc: &mut Child) -> Result<String, String> {
-    //     // TODO: make timeout
-    //     loop {
-    //         match proc.stdout.take() {
-    //             Some(mut retout) => {
-    //                 let mut buffer = String::new();
-    //                 let res_r = retout.read_to_string(&mut buffer);
-
-    //                 if let Err(err) = res_r {
-    //                     return Err(err.to_string());
-    //                 }
-    //                 let res = res_r.unwrap();
-
-    //                 if buffer.starts_with("hash:") {
-                        
-    //                     return Ok(hash)
-    //                 }
-    //             }, 
-    //             None => {
-    //                 sleep(time::Duration::from_millis(500));
-    //             }
-    //         }
-    //     }
-    // }
-
-    
 
     pub fn get_db_data(&self) -> Result<String, String> {
         return peer_server::db::db_to_str();
