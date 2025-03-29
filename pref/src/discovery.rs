@@ -1,4 +1,4 @@
-use std::fmt as fmt;
+use std::{env::args, fmt as fmt};
 
 #[derive(Debug)]
 pub enum DiscoveryError {
@@ -46,7 +46,7 @@ impl Error for NetError {}
 
 use std::error::Error;
 use log::error;
-use easy_upnp::{add_ports, delete_ports, PortMappingProtocol, UpnpConfig};
+use easy_upnp::{add_ports, delete_ports, Ipv4Cidr, PortMappingProtocol, UpnpConfig};
 use crate::core::PREF_PEER_PORT;
 
 
@@ -100,18 +100,21 @@ fn try_upnp_setup() -> Result<(), DiscoveryError> {
     Ok(())
 }
 
-// TODO: maybe change to use webserver layer later on
+use std::process::Command; 
 pub fn get_public_ip() -> Result<String, Box<dyn Error>> {
-    let res = reqwest::blocking::get("http://myexternalip.com/raw")?.text()?;
+    let ip_vec = Command::new("curl")
+        .arg("ipinfo.io/ip")
+        .output()?
+        .stdout;
 
-    Ok(res)
+    Ok(String::from_utf8(ip_vec)?)
 }
 
 
 fn get_config() -> UpnpConfig {
     // TODO: upnp setup takes very long; try to use specific address 
     let config_no_address = UpnpConfig {
-        address: None,
+        address: Some(Ipv4Cidr::from_str("192.168.1.70/24").expect("d")),
         port: PREF_PEER_PORT,
         protocol: PortMappingProtocol::TCP,
         duration: 3600,

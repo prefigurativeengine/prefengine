@@ -2,9 +2,10 @@ import RNS
 import socket
 import json
 import os
+import base64
 
 APP_NAME = 'prefengine'
-ASPECTS = ['main']
+ASPECTS = 'main'
 
 # TODO: make engine configuration that specifies this
 RET_DATA_PATH = os.path.expanduser('~') + '\\' + '.prefengine\\reticulum'
@@ -22,8 +23,8 @@ class RNSApi:
     client_socket: socket.socket
     ret_instance: RNS.Reticulum
 
-    def __init__(self, config_p):
-        self.ret_instance = RNS.Reticulum(configdir=config_p)
+    def __init__(self):
+        self.ret_instance = RNS.Reticulum(configdir=RET_DATA_PATH)
         
         # TODO: use env variables
         self.identity = RNS.Identity.from_file(RET_DATA_PATH + '\\.prefengine-secret')
@@ -33,6 +34,9 @@ class RNSApi:
         self.create_reconnect_dest()
 
         self.new_peer_dest.set_link_established_callback(self.handle_remote_new)
+
+        self.peer_conns = {}
+        self.client_socket = None
 
 
     def client_listen(self, host='127.0.0.1', port=3502):
@@ -57,7 +61,7 @@ class RNSApi:
                 # TODO: send info on remote send success or failure
                 self.handle_json(json_data)
             except json.JSONDecodeError:
-                print("Error: Received invalid JSON data", sys.stderr)
+                print("Error: Received invalid JSON data", file=sys.stderr)
             
 
     def handle_json(self, json_req: dict):
@@ -141,7 +145,7 @@ class RNSApi:
 
         # only put in conn dict if a valid peer
         if resp["accepted"] == 0:
-            self.peer_conns[link.destination.hash] = link
+            self.peer_conns[n_dto['id']] = link
             
             # TODO: use accept_app
             link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
@@ -166,15 +170,13 @@ class RNSApi:
 
     
     def fo_reconnect(self, id):
-        rc_dest_hash = id["child_id_endpoints"][0]
-
         # TODO: check for path exists for remote dest
-        rc_id = RNS.Identity.recall(rc_dest_hash)
+        rc_id = RNS.Identity.recall(id)
         rc_dest = RNS.Destination(
             rc_id,
             RNS.Destination.OUT,
             RNS.Destination.SINGLE,
-            self.APP_NAME,
+            APP_NAME,
         )
 
         # TODO: somehow make this less intrusive to the devices private key?
@@ -202,7 +204,7 @@ class RNSApi:
         return {}
     
 
-    def recv_then_parse(s):
+    def recv_then_parse(self, s):
         data = b''
         while True:
             chunk = s.recv(1024)
@@ -211,15 +213,15 @@ class RNSApi:
             data += chunk
         return json.loads(data.decode('utf-8'))
     
-    def convert_to_recieved_conn(link: RNS.Link):
+    def convert_to_recieved_conn(self, link: RNS.Link):
         remote_json = {'action': "new_peer"}
-        remote_json['id'] = link.destination.hash
+        remote_json['id'] = str(base64.b64encode(link.destination.hash))
         # hardcoded to tcp for now
         remote_json['ptp_conn'] = {"physical_type": "tcp"}
 
         return json.dumps(remote_json)
     
-    def convert_to_recieved_res(res: RNS.Resource):
+    def convert_to_recieved_res(self, res: RNS.Resource):
         remote_json = {'action': "resc_fin"}
         
         r_data = str(res.data.read(), encoding='utf-8')
@@ -231,24 +233,27 @@ class RNSApi:
 import sys
 
 def start_api():
-    api = RNSApi(APP_NAME, RET_DATA_PATH)
+    api = RNSApi()
     api.client_listen()
 
 if __name__ == "__main__":
-    # TODO: make this path concat better
-    config_p = "reticulum_config.conf"
+    if len(sys.argv) == 2 and sys.argv[1] == "first_start":
+        # turn off stdout for rust to only capture hash
+        nullout = open(os.devnull, 'w')
+        sys.stdout = nullout
 
-    # if this is first start
-    if len(sys.argv) == 1:
         test_instance = RNS.Reticulum(RET_DATA_PATH)
 
         identity = RNS.Identity()
         identity.to_file(RET_DATA_PATH + '\\.prefengine-secret')
 
         # sends self peer id to rust
-        print('hash:' + RNS.Destination.hash(identity, APP_NAME, ASPECTS))
+        sys.stdout = sys.__stdout__
+        hash = RNS.Destination.hash(identity, APP_NAME, ASPECTS)
+        print(hash)
 
-        # delete then restart later with identity file in place
-        del test_instance, identity
-
+        sys.stdout = nullout
+        # restarted by rust later
+        sys.exit(0)
+        
     start_api()

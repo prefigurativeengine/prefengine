@@ -14,7 +14,7 @@ use std::time;
 use crate::discovery;
 use crate::discovery::{ NATConfig };
 use std::net::{AddrParseError, IpAddr, Ipv4Addr};
-use std::process::{Command, Child};
+use std::process::{Child, Command, Stdio};
 use peer_server::ret_util;
 use peer_server::PeerStore;
 use std::error::Error;
@@ -53,42 +53,54 @@ impl Application
 
         let first_start = Application::is_first_time();
 
-        let ret_com = Command::new("python");
-
         // first init self peer values
         let capability: PeerCapability = PeerCapability::Desktop;
         let ip_fetch_r: Result<String, Box<dyn Error>> = discovery::get_public_ip();
         if let Err(_) = ip_fetch_r {
-            panic!("Starting database failed");
+            panic!("Fetching public IP failed");
         }
 
         let ip_fetch = ip_fetch_r.unwrap();
 
         let ip_parse_r = Ipv4Addr::from_str(&ip_fetch);
         if let Err(err) = ip_parse_r {
-            panic!("Starting database failed: {}", err);
+            panic!("Parsing public IP failed: {}", err);
         }
 
         let ip_fetch = ip_parse_r.unwrap();
-        let ret_proc: Child;
-        if first_start { 
+        if first_start {
+            let ret_com = Command::new("python");
+            // first_start_ret will use application home path
+            match core::dir::get_global_data_path(true) {
+                Ok(path) => {
+                    match fs::create_dir_all(path) {
+                        _ => {}
+                        Err(e) => panic!("Failed to create app home dir")
+                    } 
+                }
+                Err(e) => panic!("Failed to get app home dir"),
+            }
+
             match Application::first_start_ret(&capability, ret_com) {
                 Ok(ret_output) => {
-                    ret_proc = ret_output.proc;
                     // make self peer now that we have our destination hash from python as well
-                    SelfPeerInfo::new_self_peer(capability, ip_fetch, ret_output.hash)
-                        .map_err(|e| panic!("{}", e));
+                    SelfPeerInfo::new_self_peer(capability, ip_fetch, ret_output)
+                        .map_err(|e| panic!("Creating self peer failed: {}", e));
                 }
-                Err(e) => panic!("Failed to first start reticulum"),
-            }
-        } else {
-            match Application::start_pyret(ret_com) {
-                Ok(ret_output) => {
-                    ret_proc = ret_output;
-                }
-                Err(e) => panic!("Failed to start reticulum"),
+                Err(e) => panic!("Failed to first start reticulum: {}", e),
             }
         }
+        
+
+        let ret_proc: Child;
+        let ret_com = Command::new("python");
+        match Application::start_pyret(ret_com) {
+            Ok(ret_output) => {
+                ret_proc = ret_output;
+            }
+            Err(e) => panic!("Failed to start reticulum"),
+        }
+        
 
         if let Err(err) = peer_server::db::init() {
             panic!("Starting database failed: {}", err);
@@ -112,25 +124,32 @@ impl Application
         };
     }
 
-    fn first_start_ret(capability: &PeerCapability, mut ret_com: Command) -> Result<FirstStartRet, String> {
+    fn first_start_ret(capability: &PeerCapability, mut ret_com: Command) -> Result<String, String> {
         Application::gen_ret_config(capability)?;
-        let ret_r = ret_com.args(["retapi.py", "first_start"]).spawn();
+        let hash_b = ret_com.args(["retapi.py", "first_start"])
+            .output().map_err(|err| err.to_string())?
+            .stdout;
 
-        if let Err(err) = ret_r {
-            return Err(err.to_string());
-        }
+
+        let hash = hash_b[5..hash_b.len()].to_owned();
+
+        // if let Err(err) = ret_r {
+        //     return Err(err.to_string());
+        // }
     
-        let mut ret = ret_r.unwrap();
-
-        match Self::get_dest_hash(&mut ret) {
-            Ok(dest_hash) => {
-                Ok(FirstStartRet {
-                    proc: ret,
-                    hash: dest_hash
-                })
-            }
-            Err(e) => Err(e)
-        }
+        // let mut ret = ret_r.unwrap();
+        // let l = ret.wait_with_output();
+        // l.unwrap();
+        Ok(String::from_utf8(hash).map_err(|err| err.to_string())?)
+        // match Self::get_dest_hash(&mut ret) {
+        //     Ok(dest_hash) => {
+        //         Ok(FirstStartRet {
+        //             proc: ret,
+        //             hash: dest_hash
+        //         })
+        //     }
+        //     Err(e) => Err(e)
+        // }
     }
     
     fn start_pyret(mut ret_com: Command) -> Result<Child, String> {
@@ -140,27 +159,7 @@ impl Application
             return Err(err.to_string());
         }
     
-        let mut ret = ret_r.unwrap();
-        loop {
-            match ret.stdout.take() {
-                Some(mut retout) => {
-                    let mut buffer = String::new();
-                    let res_r = retout.read_to_string(&mut buffer);
-
-                    if let Err(err) = res_r {
-                        return Err(err.to_string());
-                    }
-
-                    if buffer.starts_with("Server listening") {
-                        log::info!("Recieved Reticulum API listening message");
-                        break;
-                    }
-                }, 
-                None => {
-                    sleep(time::Duration::from_millis(500));
-                }
-            }
-        }
+        let ret = ret_r.unwrap();
         Ok(ret)
     }
 
@@ -186,30 +185,30 @@ impl Application
         }
     }
 
-    fn get_dest_hash(proc: &mut Child) -> Result<String, String> {
-        // TODO: make timeout
-        loop {
-            match proc.stdout.take() {
-                Some(mut retout) => {
-                    let mut buffer = String::new();
-                    let res_r = retout.read_to_string(&mut buffer);
+    // fn get_dest_hash(proc: &mut Child) -> Result<String, String> {
+    //     // TODO: make timeout
+    //     loop {
+    //         match proc.stdout.take() {
+    //             Some(mut retout) => {
+    //                 let mut buffer = String::new();
+    //                 let res_r = retout.read_to_string(&mut buffer);
 
-                    if let Err(err) = res_r {
-                        return Err(err.to_string());
-                    }
-                    let res = res_r.unwrap();
+    //                 if let Err(err) = res_r {
+    //                     return Err(err.to_string());
+    //                 }
+    //                 let res = res_r.unwrap();
 
-                    if buffer.starts_with("hash:") {
-                        let hash = buffer[5..buffer.len()].to_owned();
-                        return Ok(hash)
-                    }
-                }, 
-                None => {
-                    sleep(time::Duration::from_millis(500));
-                }
-            }
-        }
-    }
+    //                 if buffer.starts_with("hash:") {
+                        
+    //                     return Ok(hash)
+    //                 }
+    //             }, 
+    //             None => {
+    //                 sleep(time::Duration::from_millis(500));
+    //             }
+    //         }
+    //     }
+    // }
 
     
 

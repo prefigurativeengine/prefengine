@@ -19,25 +19,22 @@ async fn get_csv(State(state): State<Arc<Sandbox>>) -> Html<String> {
 
 async fn set_csv(
     State(state): State<Arc<Sandbox>>, 
-    Json(payload): Json<serde_json::Value>
+    payload: String
     ) -> Html<&'static str> {
-    if let serde_json::Value::String(inner_pl) = payload {
-        if let Err(err) = state.eng.set_db_data(inner_pl) {
-            log::error!("Setting csv string failed: {}", err);
-            return Html("<h1>Err!</h1>");
-        }
-        Html("<h1>Hello, World!</h1>")
+    //if let serde_json::Value::String(inner_pl) = payload {
+    if let Err(err) = state.eng.set_db_data(payload) {
+        log::error!("Setting csv string failed: {}", err);
+        return Html("<h1>Err!</h1>");
     }
-    else {
-        log::error!("Incorrect payload found in set-csv");
-        Html("<h1>Err!</h1>")
-    }
+    Html("<h1>Hello, World!</h1>")
+    //}
 }
 
 
 pub async fn start(app: Sandbox) {
     let route: HashMap<&str, &str> = HashMap::from([
         ("root", "/"),
+        ("set_csv", "/set-csv"),
     ]);
 
     let port: &str = ":3500";
@@ -48,7 +45,7 @@ pub async fn start(app: Sandbox) {
     
     let router = Router::new()
         .route(route["root"], get(get_csv))
-        .route(route["set-csv"], post(set_csv))
+        .route(route["set_csv"], post(set_csv))
         .with_state(shared_state);
 
     let listener = tokio::net::TcpListener::bind(addr)

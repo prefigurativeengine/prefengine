@@ -29,6 +29,7 @@ use serde_json::{json, Value};
 use crate::core::dir;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr};
+use std::vec;
 use std::{fs, path::PathBuf};
 use std::path::{self, Path};
 
@@ -85,12 +86,18 @@ impl RemotePeerInfo {
     fn get_peers_from_disk(peer_path: &str) -> Result<Vec<RemotePeerInfo>, String> 
     {
         let peer_json_r = fs::read_to_string(peer_path);
+        
         if let Err(err) = peer_json_r {
             return Err(err.to_string()) 
         }
 
+        let peer_json = peer_json_r.unwrap();
+        if peer_json.is_empty() {
+            return Ok(vec![]);
+        }
+
         let json_array_r =
-            serde_json::from_str(&peer_json_r.unwrap());
+            serde_json::from_str(&peer_json);
 
         if let Err(err) = json_array_r {
             return Err(err.to_string());
@@ -196,14 +203,15 @@ impl SelfPeerInfo {
             ("bt".to_owned(), Value::Null),
         ]));
 
-        let cap_str_r = serde_json::to_string(&cap);
-        if let Err(err) = cap_str_r {
-            return Err(err.to_string());
+        match cap {
+            // TODO: impl all cases
+            PeerCapability::Desktop => {
+                *self_map.get_mut("cap_type").unwrap() = Value::String("Desktop".to_owned())
+            },
+            _ => *self_map.get_mut("cap_type").unwrap() = Value::String("Cap".to_owned())
         }
 
-        let cap_str = cap_str_r.unwrap();
-
-        *self_map.get_mut("cap_type").unwrap() = Value::String(cap_str);
+        
         *self_map.get_mut("disk").unwrap() = json!({});
 
         let self_str_r = serde_json::to_string(&self_map);
