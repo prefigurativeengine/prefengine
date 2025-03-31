@@ -1,33 +1,33 @@
-use axum::{extract::{State, Json}, response::Html, routing::{get, post}, Router};
+use axum::{extract::{State, Extension}, response::Html, routing::{get, post}, Router};
 use serde_json;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Mutex};
 use log;
 
 use crate::Sandbox;
 use std::sync::Arc;
 
 
-async fn get_csv(State(state): State<Arc<Sandbox>>) -> Html<String> {
-    let csv_str_r = state.eng.get_db_data();
+async fn get_csv(Extension(app): Extension<Arc<Mutex<Sandbox>>>) -> Html<String> {
+    let app_locked = app.lock().unwrap();
+    let csv_str_r = app_locked.eng.get_db_data();
     if let Err(err) = csv_str_r {
         log::error!("Getting csv string failed: {}", err);
-        return Html("<h1>Err!</h1>".to_owned());
+        return Html("<h1>Err</h1>".to_owned());
     }
 
     Html(csv_str_r.unwrap())
 }
 
 async fn set_csv(
-    State(state): State<Arc<Sandbox>>, 
+    Extension(app): Extension<Arc<Mutex<Sandbox>>>, 
     payload: String
     ) -> Html<&'static str> {
-    //if let serde_json::Value::String(inner_pl) = payload {
-    if let Err(err) = state.eng.set_db_data(payload) {
+    let mut app_locked = app.lock().unwrap();
+    if let Err(err) = app_locked.eng.update_db(payload) {
         log::error!("Setting csv string failed: {}", err);
         return Html("<h1>Err!</h1>");
     }
-    Html("<h1>Hello, World!</h1>")
-    //}
+    Html("<h1>Success</h1>")
 }
 
 
@@ -41,12 +41,16 @@ pub async fn start(app: Sandbox) {
 
     let addr: String = "127.0.0.1".to_owned() + port;
 
-    let shared_state = Arc::new(app);
+    let shared_app: Arc<Mutex<Sandbox>> = Arc::new(
+        Mutex::new(
+            app
+        )
+    );
     
     let router = Router::new()
         .route(route["root"], get(get_csv))
         .route(route["set_csv"], post(set_csv))
-        .with_state(shared_state);
+        .layer(Extension(shared_app));
 
     let listener = tokio::net::TcpListener::bind(addr)
         .await

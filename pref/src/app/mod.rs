@@ -1,6 +1,7 @@
 use crate::peer_server::peer::{PeerCapability, SelfPeerInfo};
 use crate::{core, peer_server};
 
+use std::os::windows::thread;
 use std::{env, vec};
 use std::io::Read;
 use std::io::Write;
@@ -9,7 +10,6 @@ use std::fs;
 use std::str::FromStr;
 use std::sync::Mutex;
 use std::sync::Arc;
-use std::thread::sleep;
 use std::time;
 use crate::discovery;
 use crate::discovery::{ NATConfig };
@@ -23,14 +23,8 @@ pub struct Application
 {
     nat: NATConfig,
     client: peer_server::Client,
-    listener: peer_server::Listener,
     online_peers: Arc<Mutex<PeerStore>>,
     ret_process: Child
-}
-
-struct FirstStartRet {
-    pub proc: Child,
-    pub hash: String
 }
 
 impl Application 
@@ -55,12 +49,9 @@ impl Application
 
         // first init self peer values
         let capability: PeerCapability = PeerCapability::Desktop;
-        let ip_fetch_r: Result<String, Box<dyn Error>> = discovery::get_public_ip();
-        if let Err(_) = ip_fetch_r {
-            panic!("Fetching public IP failed");
-        }
-
-        let ip_fetch = ip_fetch_r.unwrap();
+        let ip_fetch = discovery::get_public_ip()
+            .map_err(|e| panic!("Fetching public IP failed: {}", e))
+            .unwrap();
 
         let ip_parse_r = Ipv4Addr::from_str(&ip_fetch);
         if let Err(err) = ip_parse_r {
@@ -112,15 +103,21 @@ impl Application
             )
         );
 
-        let listen_inst = peer_server::Listener::new(&ps);
-        let client_inst = peer_server::Client::new(&ps);
+        let client_inst = peer_server::Client::new(&ps)
+            .map_err(|e| panic!("Creating client failed: {}", e))
+            .unwrap();
 
+        use std::thread;
+        let listen_inst = peer_server::Listener::new(&ps);
+        thread::spawn(move || {
+            listen_inst.start();
+        });
+        
         return Application {
             nat: nat_conf,
             ret_process: ret_proc,
             online_peers: ps,
             client: client_inst,
-            listener: listen_inst
         };
     }
 
@@ -169,10 +166,6 @@ impl Application
         return peer_server::db::db_to_str();
     }
 
-    pub fn set_db_data(&self, new_data: String) -> Result<(), String> {
-        return peer_server::db::append_chg(&new_data);
-    }
-
     pub fn update_db(&mut self, rows: String) -> Result<(), String> {
         return peer_server::db::process_local_change(rows, &mut self.client);
     }
@@ -184,7 +177,7 @@ impl Application
             .expect("Unable to read current working directory");
         path.push("DO_NOT_DELETE_OR_MOVE");
 
-        if (Path::new(&path).exists()) {
+        if Path::new(&path).exists() {
             return false
         } else {
             fs::File::create(path).expect("Unable to write 'first start file' to current working directory");

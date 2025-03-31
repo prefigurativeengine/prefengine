@@ -95,6 +95,32 @@ impl RemotePeerInfo {
 
 }
 
+pub struct TempPeerInfo {
+    dest_hash: String
+}
+
+impl TempPeerInfo {
+    // TODO: assumes expected_temps only has array of strings
+    pub fn load_expected_temps() -> Result<Vec<TempPeerInfo>, String> {
+        let temp_json = fs::read_to_string("expected_temps.json")
+            .map_err(|err| err.to_string())?;
+
+        let temp_array: Value = serde_json::from_str(&temp_json)
+            .map_err(|err| err.to_string())?;
+
+        let mut expected = vec![];
+        
+        for t in temp_array.as_array().unwrap() {
+            let t_obj = TempPeerInfo {
+                dest_hash: t.as_str().unwrap().to_owned()
+            };
+            expected.push(t_obj);
+        }
+    
+        return Ok(expected);
+    }
+}
+
 // TODO: impl all of peer model
 
 #[derive(serde::Deserialize)]
@@ -148,27 +174,17 @@ use serde_json::{Error as s_Error, Number, Map};
 impl SelfPeerInfo {
     // TODO: clean this function up, and support ipv6
     pub fn new_self_peer(cap: PeerCapability, ip: Ipv4Addr, dest_hash: String) -> Result<SelfPeerInfo, String> {
-        let self_path = Path::new("self_peer.dummy.json");
+        let self_dummy_path = Path::new("self_peer.dummy.json");
+        let self_path = Path::new("self_peer.json");
 
-        let dummy_str_r = fs::read_to_string(self_path);
-        if let Err(err) = dummy_str_r {
-            return Err(err.to_string());
-        }
-        let dummy_str = dummy_str_r.unwrap();
+        let dummy_str = fs::read_to_string(self_dummy_path)
+            .map_err(|err| err.to_string())?;
 
-        let self_map_r: Result<HashMap<String, Value>, s_Error> = serde_json::from_str(&dummy_str);
-        if let Err(err) = self_map_r {
-            return Err(err.to_string());
-        }
+        let mut self_map: HashMap<String, Value> = serde_json::from_str(&dummy_str)
+            .map_err(|err| err.to_string())?;
 
-        let mut self_map = self_map_r.unwrap();
+        let id = RemotePeerInfo::get_next_unique_id()?;
 
-        let id_r = RemotePeerInfo::get_next_unique_id();
-        if let Err(err) = id_r {
-            return Err(err);
-        }
-
-        let id = id_r.unwrap();
         *self_map.get_mut("id").unwrap() = Value::Object(
             Map::from_iter([
                 ("value".to_owned(), Value::Number(Number::from(id))),
@@ -192,14 +208,15 @@ impl SelfPeerInfo {
         
         *self_map.get_mut("disk").unwrap() = json!({});
 
-        let self_str_r = serde_json::to_string(&self_map);
-        if let Err(err) = self_str_r {
-            return Err(err.to_string());
-        }
+        let self_str = serde_json::to_string(&self_map)
+            .map_err(|err| err.to_string())?;
         
-        match fs::write(self_path, self_str_r.unwrap()) {
+        match fs::write(self_path, self_str) {
             Ok(()) => {
-                let self_info: SelfPeerInfo = serde_json::from_value(serde_json::to_value(self_map).unwrap()).unwrap();
+                let self_info: SelfPeerInfo = serde_json::from_value(
+                    serde_json::to_value(self_map).map_err(|err| err.to_string())?
+                ).map_err(|err| err.to_string())?;
+                
                 Ok(self_info)        
             },
             Err(err) => Err(err.to_string())

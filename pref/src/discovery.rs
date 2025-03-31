@@ -114,7 +114,7 @@ pub fn get_public_ip() -> Result<String, Box<dyn Error>> {
 fn get_config() -> UpnpConfig {
     // TODO: upnp setup takes very long; try to use specific address 
     let config_no_address = UpnpConfig {
-        address: Some(Ipv4Cidr::from_str("192.168.1.70/24").expect("d")),
+        address: None,
         port: PREF_PEER_PORT,
         protocol: PortMappingProtocol::TCP,
         duration: 3600,

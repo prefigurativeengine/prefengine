@@ -34,14 +34,27 @@ const SEND_ACTION: &str = "send";
 
 
 impl Client {
-    pub fn new(ps: &Arc<Mutex<PeerStore>>) -> Client {
-        let client = Client {
-            ret_api_conn: TcpStream::connect(RET_URL)
-                .expect("Could not connect to reticulum"),
-            peers: Arc::clone(ps),
+    pub fn new(ps: &Arc<Mutex<PeerStore>>) -> Result<Client, String> {
+        let client_res = {
+            let mut client_new = Client {
+                ret_api_conn: TcpStream::connect(RET_URL)
+                    .map_err(|e| e.to_string())?,
+                peers: Arc::clone(ps),
+            };
+
+            if peer::RemotePeerInfo::load_remote_peers()?.is_empty() && 
+                peer::TempPeerInfo::load_expected_temps()?.is_empty() {
+                return Err("No peers to connect to.".to_owned());
+            }
+
+            if let Err(err) = client_new.peer_connect_all() {
+                return Err(err);
+            }
+
+            Ok(client_new)
         };
 
-        client
+        client_res
     }
 
     pub fn start(&mut self) {
@@ -65,7 +78,7 @@ impl Client {
     fn peer_connect_all(&mut self) -> Result<(), String> {
         if let Ok(peers) = RemotePeerInfo::load_remote_peers() {
             for peer in peers {
-                match self.peer_connect(&peer) {
+                match self.peer_connect(&peer.addr.dest_hash) {
                     Ok((_)) => {
                         log::info!("Sent reconnect msg to reverse proxy for {}", peer.id.value);
                     },
@@ -82,10 +95,10 @@ impl Client {
         }
     }
 
-    fn peer_connect(&mut self, peer: &RemotePeerInfo) -> Result<usize, std::io::Error> {
+    fn peer_connect(&mut self, peer_dest: &String) -> Result<usize, std::io::Error> {
         // TODO: run through a list of connection tactics according to values in peerinfo 
 
-        let id_cpy = peer.addr.dest_hash.clone();    
+        let id_cpy = peer_dest.clone();    
         let json_s_r = Client::format_for_ret(Some(id_cpy), FO_RECONNECT_ACTION, None);
         if let Err(err) = json_s_r {
             let err_obj = std::io::Error::new(std::io::ErrorKind::Other, err);
@@ -149,6 +162,7 @@ impl Listener {
         listen
     }
 
+    // must be called on a seperate thread
     pub fn start(self) {
         for stream in self.inner_listener.incoming() {
             match stream {
