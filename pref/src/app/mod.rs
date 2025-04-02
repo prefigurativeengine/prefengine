@@ -1,23 +1,18 @@
-use crate::peer_server::peer::{PeerCapability, SelfPeerInfo};
+use crate::peer_server::peer::{PeerCapability, RemotePeerInfo, SelfPeerInfo, TempPeerInfo};
 use crate::{core, peer_server};
 
-use std::os::windows::thread;
-use std::{env, vec};
-use std::io::Read;
-use std::io::Write;
+use std::{env};
 use std::path::Path;
 use std::fs;
 use std::str::FromStr;
 use std::sync::Mutex;
 use std::sync::Arc;
-use std::time;
 use crate::discovery;
 use crate::discovery::{ NATConfig };
-use std::net::{AddrParseError, IpAddr, Ipv4Addr};
-use std::process::{Child, Command, Stdio};
+use std::net::{Ipv4Addr};
+use std::process::{Child, Command};
 use peer_server::ret_util;
 use peer_server::PeerStore;
-use std::error::Error;
 
 pub struct Application 
 {
@@ -60,16 +55,23 @@ impl Application
 
         let ip_fetch = ip_parse_r.unwrap();
         if first_start {
-            let ret_com = Command::new("python");
+            let ret_com = {
+                if cfg!(target_os = "linux") {
+                    Command::new("python3")
+                } else {
+                    Command::new("python")
+                }
+            };
+
             // first_start_ret will use application home path
             match core::dir::get_global_data_path(true) {
                 Ok(path) => {
                     match fs::create_dir_all(path) {
                         _ => {}
-                        Err(e) => panic!("Failed to create app home dir")
+                        Err(e) => panic!("Failed to create app home dir {}", e)
                     } 
                 }
-                Err(e) => panic!("Failed to get app home dir"),
+                Err(e) => panic!("Failed to get app home dir: {}", e),
             }
 
             match Application::first_start_ret(&capability, ret_com) {
@@ -84,12 +86,18 @@ impl Application
         
 
         let ret_proc: Child;
-        let ret_com = Command::new("python");
+        let ret_com = {
+            if cfg!(target_os = "linux") {
+                Command::new("python3")
+            } else {
+                Command::new("python")
+            }
+        };
         match Application::start_pyret(ret_com) {
             Ok(ret_output) => {
                 ret_proc = ret_output;
             }
-            Err(e) => panic!("Failed to start reticulum"),
+            Err(e) => panic!("Failed to start reticulum: {}", e),
         }
         
 
@@ -119,6 +127,15 @@ impl Application
             online_peers: ps,
             client: client_inst,
         };
+    }
+
+    fn group_checks() -> Result<(), String> {
+        // check peer group invariants
+
+        // check temp peer invariants
+
+        // check satelite peer invariants
+        Ok(())
     }
 
     fn first_start_ret(capability: &PeerCapability, mut ret_com: Command) -> Result<String, String> {

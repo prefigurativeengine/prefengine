@@ -33,7 +33,7 @@ use std::vec;
 use std::{fs, path::PathBuf};
 use std::path::{self, Path};
 
-// TODO: refactor to make peer info management like PeerStore (encapsulated collections)
+// TODO: refactor to seperate implementations managing one remote peer and the peer group as a whole, encapsulating the collection
 
 impl RemotePeerInfo {
     pub fn load_remote_peers() -> Result<Vec<RemotePeerInfo>, String> {

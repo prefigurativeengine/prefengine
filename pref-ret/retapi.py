@@ -1,9 +1,11 @@
 from typing import OrderedDict
-import RNS
 import socket
 import json
 import os
 import base64
+import sys
+
+import RNS
 
 APP_NAME = 'prefengine'
 ASPECTS = 'main'
@@ -29,7 +31,7 @@ class RNSApi:
         self.ret_instance = RNS.Reticulum(configdir=RET_DATA_PATH)
         
         # TODO: use env variables
-        self.identity = RNS.Identity.from_file(RET_DATA_PATH, ".prefengine-secret")
+        self.identity = RNS.Identity.from_file(os.path.join(RET_DATA_PATH, ".prefengine-secret"))
 
         # two sides of the same theoretical endpoint
         self.create_new_peer_dest()
@@ -232,8 +234,6 @@ class RNSApi:
 
         return json.dumps(remote_json)
         
-
-import sys
 
 def start_api():
     api = RNSApi()

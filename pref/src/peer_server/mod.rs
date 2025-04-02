@@ -21,7 +21,7 @@ use serde_json::Error as s_Error;
 use std::sync::Mutex;
 
 const RET_URL: &str = "127.0.0.1:3502";
-const PREF_URL: &str = "127.0.0.1:3501";
+const PREF_LISTEN_URL: &str = "127.0.0.1:3501";
 
 
 pub struct Client {
@@ -154,7 +154,7 @@ pub struct Listener {
 impl Listener {
     pub fn new(ps: &Arc<Mutex<PeerStore>>) -> Listener {
         let listen = Listener {
-            inner_listener: TcpListener::bind(PREF_URL)
+            inner_listener: TcpListener::bind(PREF_LISTEN_URL)
                 .expect("Could not start the reticulum listener"),
             peers: Arc::clone(ps),
         };
