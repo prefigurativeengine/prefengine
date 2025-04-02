@@ -1,17 +1,12 @@
-#[cfg(not(target_os = "windows"))]
-compile_error!("Windows only");
 
-// export for sandbox
+// export for web layer
 pub mod app;
 pub mod core;
 
 // export for app
 
 
-// private mods
-
-
-// use externs
+// internal uses
 mod discovery;
 mod peer_server;
 

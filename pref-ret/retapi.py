@@ -9,7 +9,8 @@ APP_NAME = 'prefengine'
 ASPECTS = 'main'
 
 # TODO: make engine configuration that specifies this
-RET_DATA_PATH = os.path.expanduser('~') + '\\' + '.prefengine\\reticulum'
+RET_DATA_PATH = os.path.join(os.path.expanduser('~'), '.prefengine', 'reticulum')
+
 
 # TODO: mark private methods, add timeouts, make async
 class RNSApi:
@@ -28,7 +29,7 @@ class RNSApi:
         self.ret_instance = RNS.Reticulum(configdir=RET_DATA_PATH)
         
         # TODO: use env variables
-        self.identity = RNS.Identity.from_file(RET_DATA_PATH + '\\.prefengine-secret')
+        self.identity = RNS.Identity.from_file(RET_DATA_PATH, ".prefengine-secret")
 
         # two sides of the same theoretical endpoint
         self.create_new_peer_dest()
@@ -247,7 +248,7 @@ if __name__ == "__main__":
         test_instance = RNS.Reticulum(RET_DATA_PATH)
 
         identity = RNS.Identity()
-        identity.to_file(RET_DATA_PATH + '\\.prefengine-secret')
+        identity.to_file(os.path.join(RET_DATA_PATH, ".prefengine-secret"))
 
         # sends self peer id to rust
         sys.stdout = sys.__stdout__
