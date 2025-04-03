@@ -111,9 +111,11 @@ impl Application
             )
         );
 
-        let client_inst = peer_server::Client::new(&ps)
+        let mut client_inst = peer_server::Client::new(&ps)
             .map_err(|e| panic!("Creating client failed: {}", e))
             .unwrap();
+
+        client_inst.start().map_err(|e| panic!("Starting client failed: {}", e));
 
         use std::thread;
         let listen_inst = peer_server::Listener::new(&ps);
@@ -185,6 +187,22 @@ impl Application
 
     pub fn update_db(&mut self, rows: String) -> Result<(), String> {
         return peer_server::db::process_local_change(rows, &mut self.client);
+    }
+
+    pub fn add_temp_peer(&self, hash: String) -> Result<(), String> {
+        // TODO: confirm with rest of peer group
+        let temp = TempPeerInfo { dest_hash: hash };
+        TempPeerInfo::append_temp_to_disk(temp)?;
+        Ok(())
+    }
+
+    pub fn all_temp_peers_to_peer(&mut self) -> Result<(), String> {
+        // TODO: send this event to rest of peer group
+
+        peer_server::peer::add_all_temp_peers()?;
+        // refresh online peers
+        self.client.peer_connect_all()?;
+        Ok(())
     }
 
     fn is_first_time() -> bool 

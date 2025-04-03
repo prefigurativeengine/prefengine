@@ -1,15 +1,15 @@
 use axum::{extract::{State, Extension}, response::Html, routing::{get, post}, Router};
+use prefengine::app::Application;
 use serde_json;
 use std::{collections::HashMap, sync::Mutex};
 use log;
 
-use crate::Sandbox;
 use std::sync::Arc;
 
 
-async fn get_csv(Extension(app): Extension<Arc<Mutex<Sandbox>>>) -> Html<String> {
+async fn get_csv(Extension(app): Extension<Arc<Mutex<Application>>>) -> Html<String> {
     let app_locked = app.lock().unwrap();
-    let csv_str_r = app_locked.eng.get_db_data();
+    let csv_str_r = app_locked.get_db_data();
     if let Err(err) = csv_str_r {
         log::error!("Getting csv string failed: {}", err);
         return Html("<h1>Err</h1>".to_owned());
@@ -19,29 +19,54 @@ async fn get_csv(Extension(app): Extension<Arc<Mutex<Sandbox>>>) -> Html<String>
 }
 
 async fn set_csv(
-    Extension(app): Extension<Arc<Mutex<Sandbox>>>, 
+    Extension(app): Extension<Arc<Mutex<Application>>>, 
     payload: String
     ) -> Html<&'static str> {
     let mut app_locked = app.lock().unwrap();
-    if let Err(err) = app_locked.eng.update_db(payload) {
+    if let Err(err) = app_locked.update_db(payload) {
         log::error!("Setting csv string failed: {}", err);
         return Html("<h1>Err!</h1>");
     }
     Html("<h1>Success</h1>")
 }
 
+async fn add_temp(
+    Extension(app): Extension<Arc<Mutex<Application>>>,
+    payload: String
+    ) -> Html<&'static str> {
+    let app_locked = app.lock().unwrap();
+    if let Err(err) = app_locked.add_temp_peer(payload) {
+        log::error!("Adding a temp peer failed: {}", err);
+        return Html("<h1>Err!</h1>");
+    }
+    Html("<h1>Success</h1>")
+}
 
-pub async fn start(app: Sandbox) {
+async fn transform_temp_peer(
+    Extension(app): Extension<Arc<Mutex<Application>>>
+    ) -> Html<&'static str> {
+    let mut app_locked = app.lock().unwrap();
+    if let Err(err) = app_locked.all_temp_peers_to_peer() {
+        log::error!("Transforming temp peers failed: {}", err);
+        return Html("<h1>Err!</h1>");
+    }
+    Html("<h1>Success</h1>")
+}
+
+
+pub async fn start(app: Application) {
     let route: HashMap<&str, &str> = HashMap::from([
         ("root", "/"),
         ("set_csv", "/set-csv"),
+        ("transform_temp_peer", "/transform-temp"),
+        ("add_temp", "/add-temp"),
     ]);
 
     let port: &str = ":3500";
 
     let addr: String = "127.0.0.1".to_owned() + port;
 
-    let shared_app: Arc<Mutex<Sandbox>> = Arc::new(
+    let shared_app: Arc<Mutex<Application>> = Arc::new(
         Mutex::new(
             app
         )
@@ -50,6 +75,8 @@ pub async fn start(app: Sandbox) {
     let router = Router::new()
         .route(route["root"], get(get_csv))
         .route(route["set_csv"], post(set_csv))
+        .route(route["transform_temp_peer"], post(transform_temp_peer))
+        .route(route["add_temp"], post(add_temp))
         .layer(Extension(shared_app));
 
     let listener = tokio::net::TcpListener::bind(addr)

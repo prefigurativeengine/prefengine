@@ -1,9 +1,0 @@
-{
-    "change" : {
-        "entity" : "value",
-        "kv_changes" : {
-            "key":"value",
-            "key":"value",
-        }
-    }
-}

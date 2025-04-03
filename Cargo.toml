@@ -1,5 +1,5 @@
 [workspace]
-members = ["pref", "sandbox"]
+members = ["pref", "api"]
 resolver = "2"
 
 

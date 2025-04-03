@@ -2345,7 +2345,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pref"
+name = "prefengine"
 version = "0.1.0"
 dependencies = [
  "axum",
@@ -2360,6 +2360,18 @@ dependencies = [
  "serde_json",
  "simple_logger",
  "time",
+ "tokio",
+]
+
+[[package]]
+name = "prefengine_api"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "log",
+ "prefengine",
+ "serde_json",
+ "simple_logger",
  "tokio",
 ]
 
@@ -2807,18 +2819,6 @@ name = "ryu"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
-
-[[package]]
-name = "sandbox"
-version = "0.1.0"
-dependencies = [
- "axum",
- "log",
- "pref",
- "serde_json",
- "simple_logger",
- "tokio",
-]
 
 [[package]]
 name = "schannel"

@@ -4,7 +4,7 @@ use std::net::{self, Ipv4Addr, Ipv6Addr, TcpListener, TcpStream};
 use std::{fs, thread}; 
 
 pub mod peer;
-use peer::RemotePeer;
+use peer::{RemotePeer, TempPeerInfo};
 use peer::RemotePeerInfo;
 use peer::PeerCapability;
 use serde_json::Value;
@@ -47,19 +47,15 @@ impl Client {
                 return Err("No peers to connect to.".to_owned());
             }
 
-            if let Err(err) = client_new.peer_connect_all() {
-                return Err(err);
-            }
-
             Ok(client_new)
         };
 
         client_res
     }
 
-    pub fn start(&mut self) {
-        self.peer_connect_all();
-    }  
+    pub fn start(&mut self) -> Result<(), String> {
+        self.peer_connect_all()
+    } 
 
     pub fn send_db_change(&mut self, change: String) -> Result<(), String> {
         let mut change_map = HashMap::new();
@@ -75,7 +71,7 @@ impl Client {
         }
     }
 
-    fn peer_connect_all(&mut self) -> Result<(), String> {
+    pub fn peer_connect_all(&mut self) -> Result<(), String> {
         if let Ok(peers) = RemotePeerInfo::load_remote_peers() {
             for peer in peers {
                 match self.peer_connect(&peer.addr.dest_hash) {
@@ -97,6 +93,7 @@ impl Client {
 
     fn peer_connect(&mut self, peer_dest: &String) -> Result<usize, std::io::Error> {
         // TODO: run through a list of connection tactics according to values in peerinfo 
+        // TODO: check if connect attempt succeeded
 
         let id_cpy = peer_dest.clone();    
         let json_s_r = Client::format_for_ret(Some(id_cpy), FO_RECONNECT_ACTION, None);

@@ -36,6 +36,30 @@ use std::path::{self, Path};
 // TODO: refactor to seperate implementations managing one remote peer and the peer group as a whole, encapsulating the collection
 
 impl RemotePeerInfo {
+    pub fn from_temps_write(temps: Vec<TempPeerInfo>) -> Result<(), String>  {
+        let mut new_peers = vec![];
+        for t in temps {
+            new_peers.push(
+                Self::new(t.dest_hash)?
+            );
+        }
+
+        Self::append_peers_to_disk(new_peers)?;
+        Ok(())
+    }
+
+    pub fn new(ret_hash: String) -> Result<RemotePeerInfo, String> {
+        Ok(Self {
+            id: PeerId { value: Self::get_next_unique_id()? },
+            addr: PeerAddress {
+                ip: None,
+                dest_hash: ret_hash,
+                bt: None
+            },
+            cap_type: PeerCapability::Desktop
+        })
+    }
+
     pub fn load_remote_peers() -> Result<Vec<RemotePeerInfo>, String> {
         let disk_peers = RemotePeerInfo::get_peers_from_disk("peers.json")?;
         Ok(disk_peers)
@@ -95,12 +119,32 @@ impl RemotePeerInfo {
 
 }
 
+#[derive(serde::Deserialize)]
+#[derive(serde::Serialize)]
+#[derive(Clone)]
 pub struct TempPeerInfo {
-    dest_hash: String
+    pub dest_hash: String
 }
 
 impl TempPeerInfo {
-    // TODO: assumes expected_temps only has array of strings
+    pub fn append_temp_to_disk(temp: TempPeerInfo) -> Result<(), String>  {
+        let temp_json = fs::read_to_string("expected_temps.json")
+            .map_err(|err| err.to_string())?;
+
+        let mut json_array: Vec<TempPeerInfo> = serde_json::from_str(&temp_json)
+            .map_err(|err| err.to_string())?;
+        json_array.push(temp);
+
+        let json_str = serde_json::to_string(&json_array)
+            .map_err(|err| err.to_string())?;
+
+        match fs::write("expected_temps.json", json_str) {
+            Ok(()) => Ok(()),
+            Err(err) => Err(err.to_string())
+        }
+    }
+
+    // TODO: assumes expected_temps only has empty array or array of strings
     pub fn load_expected_temps() -> Result<Vec<TempPeerInfo>, String> {
         let temp_json = fs::read_to_string("expected_temps.json")
             .map_err(|err| err.to_string())?;
@@ -252,4 +296,10 @@ impl SelfPeerInfo {
 #[derive(serde::Deserialize)]
 #[derive(serde::Serialize)]
 pub struct DiskInfo {
+}
+
+pub fn add_all_temp_peers() -> Result<(), String> {
+    let temps = TempPeerInfo::load_expected_temps()?;
+    RemotePeerInfo::from_temps_write(temps)?;
+    Ok(())
 }
