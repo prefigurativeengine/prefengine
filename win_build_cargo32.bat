@@ -8,6 +8,7 @@ copy "pref-ret\retapi.py" "build\i686-pc-windows-msvc"
 if NOT "%1"=="no_dcpy" (
     copy "data\reticulum_dummy_config.conf" "build\i686-pc-windows-msvc"
     copy "data\self_peer.dummy.json" "build\i686-pc-windows-msvc"
+    copy "data\expected_temps.json" "build\i686-pc-windows-msvc"
     copy "data\peers.json" "build\i686-pc-windows-msvc"
 )
 

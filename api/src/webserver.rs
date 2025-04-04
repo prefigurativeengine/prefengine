@@ -1,11 +1,15 @@
-use axum::{extract::{State, Extension}, response::Html, routing::{get, post}, Router};
+use axum::{
+    Router,
+    extract::{Extension, State},
+    response::Html,
+    routing::{get, post},
+};
+use log;
 use prefengine::app::Application;
 use serde_json;
 use std::{collections::HashMap, sync::Mutex};
-use log;
 
 use std::sync::Arc;
-
 
 async fn get_csv(Extension(app): Extension<Arc<Mutex<Application>>>) -> Html<String> {
     let app_locked = app.lock().unwrap();
@@ -19,9 +23,9 @@ async fn get_csv(Extension(app): Extension<Arc<Mutex<Application>>>) -> Html<Str
 }
 
 async fn set_csv(
-    Extension(app): Extension<Arc<Mutex<Application>>>, 
-    payload: String
-    ) -> Html<&'static str> {
+    Extension(app): Extension<Arc<Mutex<Application>>>,
+    payload: String,
+) -> Html<&'static str> {
     let mut app_locked = app.lock().unwrap();
     if let Err(err) = app_locked.update_db(payload) {
         log::error!("Setting csv string failed: {}", err);
@@ -32,8 +36,8 @@ async fn set_csv(
 
 async fn add_temp(
     Extension(app): Extension<Arc<Mutex<Application>>>,
-    payload: String
-    ) -> Html<&'static str> {
+    payload: String,
+) -> Html<&'static str> {
     let app_locked = app.lock().unwrap();
     if let Err(err) = app_locked.add_temp_peer(payload) {
         log::error!("Adding a temp peer failed: {}", err);
@@ -43,8 +47,8 @@ async fn add_temp(
 }
 
 async fn transform_temp_peer(
-    Extension(app): Extension<Arc<Mutex<Application>>>
-    ) -> Html<&'static str> {
+    Extension(app): Extension<Arc<Mutex<Application>>>,
+) -> Html<&'static str> {
     let mut app_locked = app.lock().unwrap();
     if let Err(err) = app_locked.all_temp_peers_to_peer() {
         log::error!("Transforming temp peers failed: {}", err);
@@ -52,7 +56,6 @@ async fn transform_temp_peer(
     }
     Html("<h1>Success</h1>")
 }
-
 
 pub async fn start(app: Application) {
     let route: HashMap<&str, &str> = HashMap::from([
@@ -66,12 +69,8 @@ pub async fn start(app: Application) {
 
     let addr: String = "127.0.0.1".to_owned() + port;
 
-    let shared_app: Arc<Mutex<Application>> = Arc::new(
-        Mutex::new(
-            app
-        )
-    );
-    
+    let shared_app: Arc<Mutex<Application>> = Arc::new(Mutex::new(app));
+
     let router = Router::new()
         .route(route["root"], get(get_csv))
         .route(route["set_csv"], post(set_csv))
@@ -79,10 +78,11 @@ pub async fn start(app: Application) {
         .route(route["add_temp"], post(add_temp))
         .layer(Extension(shared_app));
 
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
 
-    log::info!("Localhost server listening on {}", listener.local_addr().unwrap());
+    log::info!(
+        "Localhost server listening on {}",
+        listener.local_addr().unwrap()
+    );
     axum::serve(listener, router).await.unwrap();
 }

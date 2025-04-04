@@ -1,44 +1,39 @@
 use crate::peer_server::peer::{PeerCapability, RemotePeerInfo, SelfPeerInfo, TempPeerInfo};
 use crate::{core, peer_server};
 
-use std::{env};
-use std::path::Path;
-use std::fs;
-use std::str::FromStr;
-use std::sync::Mutex;
-use std::sync::Arc;
 use crate::discovery;
-use crate::discovery::{ NATConfig };
-use std::net::{Ipv4Addr};
-use std::process::{Child, Command};
-use peer_server::ret_util;
+use crate::discovery::NATConfig;
 use peer_server::PeerStore;
+use peer_server::ret_util;
+use std::env;
+use std::fs;
+use std::net::Ipv4Addr;
+use std::path::Path;
+use std::process::{Child, Command};
+use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::Mutex;
 
-pub struct Application 
-{
+pub struct Application {
     nat: NATConfig,
     client: peer_server::Client,
     online_peers: Arc<Mutex<PeerStore>>,
-    ret_process: Child
+    ret_process: Child,
 }
 
-impl Application 
-{
-    pub async fn new() -> Application 
-    {
+impl Application {
+    pub async fn new() -> Application {
         core::pref_log::init_styled_logger();
         log::info!("Initialized log");
-        
+
         let nat_conf = NATConfig::new();
-        
+
         if nat_conf.auto_port_forward {
             log::info!("Auto port-forward enabled");
-        } 
-        else {
+        } else {
             // TODO: add some sort of message to confirm manual portforwarding
             log::info!("Auto port-forward failed, assuming manual portforward has been done");
         }
-
 
         let first_start = Application::is_first_time();
 
@@ -65,12 +60,10 @@ impl Application
 
             // first_start_ret will use application home path
             match core::dir::get_global_data_path(true) {
-                Ok(path) => {
-                    match fs::create_dir_all(path) {
-                        _ => {}
-                        Err(e) => panic!("Failed to create app home dir {}", e)
-                    } 
-                }
+                Ok(path) => match fs::create_dir_all(path) {
+                    _ => {}
+                    Err(e) => panic!("Failed to create app home dir {}", e),
+                },
                 Err(e) => panic!("Failed to get app home dir: {}", e),
             }
 
@@ -83,7 +76,6 @@ impl Application
                 Err(e) => panic!("Failed to first start reticulum: {}", e),
             }
         }
-        
 
         let ret_proc: Child;
         let ret_com = {
@@ -99,30 +91,27 @@ impl Application
             }
             Err(e) => panic!("Failed to start reticulum: {}", e),
         }
-        
 
         if let Err(err) = peer_server::db::init() {
             panic!("Starting database failed: {}", err);
         }
 
-        let ps: Arc<Mutex<PeerStore>> = Arc::new(
-            Mutex::new(
-                PeerStore::new()
-            )
-        );
+        let ps: Arc<Mutex<PeerStore>> = Arc::new(Mutex::new(PeerStore::new()));
 
         let mut client_inst = peer_server::Client::new(&ps)
             .map_err(|e| panic!("Creating client failed: {}", e))
             .unwrap();
 
-        client_inst.start().map_err(|e| panic!("Starting client failed: {}", e));
+        client_inst
+            .start()
+            .map_err(|e| panic!("Starting client failed: {}", e));
 
         use std::thread;
         let listen_inst = peer_server::Listener::new(&ps);
         thread::spawn(move || {
             listen_inst.start();
         });
-        
+
         return Application {
             nat: nat_conf,
             ret_process: ret_proc,
@@ -140,25 +129,30 @@ impl Application
         Ok(())
     }
 
-    fn first_start_ret(capability: &PeerCapability, mut ret_com: Command) -> Result<String, String> {
+    fn first_start_ret(
+        capability: &PeerCapability,
+        mut ret_com: Command,
+    ) -> Result<String, String> {
         Application::gen_ret_config(capability)?;
-        let hash_b = ret_com.args(["retapi.py", "first_start"])
-            .output().map_err(|err| err.to_string())?
+        let hash_b = ret_com
+            .args(["retapi.py", "first_start"])
+            .output()
+            .map_err(|err| err.to_string())?
             .stdout;
-
 
         let hash = hash_b[5..hash_b.len()].to_owned();
 
         Ok(String::from_utf8(hash).map_err(|err| err.to_string())?)
     }
-    
+
     fn start_pyret(mut ret_com: Command) -> Result<Child, String> {
-        let ret = ret_com.args(["retapi.py"]).spawn()
+        let ret = ret_com
+            .args(["retapi.py"])
+            .spawn()
             .map_err(|err| err.to_string())?;
-        
+
         Ok(ret)
     }
-
 
     fn gen_ret_config(capability: &PeerCapability) -> Result<(), String> {
         // TODO: reticulum authentication
@@ -205,21 +199,17 @@ impl Application
         Ok(())
     }
 
-    fn is_first_time() -> bool 
-    {
+    fn is_first_time() -> bool {
         // TODO: improve this, maybe change to looking for config file
-        let mut path = env::current_dir()
-            .expect("Unable to read current working directory");
+        let mut path = env::current_dir().expect("Unable to read current working directory");
         path.push("DO_NOT_DELETE_OR_MOVE");
 
         if Path::new(&path).exists() {
-            return false
+            return false;
         } else {
-            fs::File::create(path).expect("Unable to write 'first start file' to current working directory");
+            fs::File::create(path)
+                .expect("Unable to write 'first start file' to current working directory");
             return true;
         }
     }
-
-     
 }
-

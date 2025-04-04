@@ -1,6 +1,6 @@
 extern crate prefengine;
 
-use prefengine::{ app::Application };
+use prefengine::app::Application;
 use tokio;
 
 // pub struct App {

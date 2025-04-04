@@ -256,7 +256,7 @@ if __name__ == "__main__":
         print(hash)
 
         sys.stdout = nullout
-        # restarted by rust later
+        # restarted by rust later 
         sys.exit(0)
         
     start_api()
