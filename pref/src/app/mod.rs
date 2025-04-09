@@ -1,3 +1,4 @@
+use crate::core::dir;
 use crate::peer_server::peer::{PeerCapability, RemotePeerInfo, SelfPeerInfo, TempPeerInfo};
 use crate::{core, peer_server};
 
@@ -134,8 +135,16 @@ impl Application {
         mut ret_com: Command,
     ) -> Result<String, String> {
         Application::gen_ret_config(capability)?;
+
+        let ret_path_buf = dir::get_root_file_path("retapi.py")?;
+        let ret_path_o = ret_path_buf.to_str();
+        if let None = ret_path_o {
+            return Err("Root path not valid unicode".to_owned());
+        }
+        let ret_path = ret_path_o.unwrap();
+
         let hash_b = ret_com
-            .args(["retapi.py", "first_start"])
+            .args([ret_path, "first_start"])
             .output()
             .map_err(|err| err.to_string())?
             .stdout;
@@ -146,8 +155,15 @@ impl Application {
     }
 
     fn start_pyret(mut ret_com: Command) -> Result<Child, String> {
+        let ret_path_buf = dir::get_root_file_path("retapi.py")?;
+        let ret_path_o = ret_path_buf.to_str();
+        if let None = ret_path_o {
+            return Err("Root path not valid unicode".to_owned());
+        }
+        let ret_path = ret_path_o.unwrap();
+
         let ret = ret_com
-            .args(["retapi.py"])
+            .args([ret_path])
             .spawn()
             .map_err(|err| err.to_string())?;
 
@@ -192,8 +208,8 @@ impl Application {
 
     pub fn all_temp_peers_to_peer(&mut self) -> Result<(), String> {
         // TODO: send this event to rest of peer group
-
         peer_server::peer::add_all_temp_peers()?;
+
         // refresh online peers
         self.client.peer_connect_all()?;
         Ok(())

@@ -1,37 +1,42 @@
 # Prefigurative Engine
 
-Prefengine is an application designed to provide a unified interface to create business software similar to an ERP or BPM, but for grassroots, activist organizations.  By solving issues present in horizontal organizing, the project hopes to make organizing less exhausting and more accessible for everyone involved. In more technical terms, it is engine software that will construct and run organizational p2p app, made in Rust.
+Prefengine is an application designed to provide a unified interface to create business software similar to an ERP or BPM, but for grassroots, activist organizations.  By solving issues present in horizontal organizing with a private peer-to-peer network, the project hopes to make organizing less exhausting and more accessible for everyone involved. In more technical terms, it is engine software that will construct and run an organizational p2p app, made in Rust.
+
+Right now the project has been planned out extensively, however the actual code is very minimal and the few basic features it does have have not been made robust. The roadmap below lays out where the project is currently expected to go in the future.
 
 ## Roadmap
 
 The following broad milestones listed represent the kind of app prefengine should be capable of producing. Subject to change.
 
-0. Protoype 
-abilities of all three layers
+0. Protoype (Basic implementation of essential functions)
+ - [x] Storing peer data
+ - [x] Storing app data
+ - [x] NAT traversal
+ - [ ] Messaging peers (Most functions for this are created using Reticulum, however communication still isn't up and running yet)
 
 1. Basic Team Collaboration App
-abilities of all three layers
+ - [ ] Reliable, Partially-synchronous Messaging
+ - [ ] Reliable, Partially-synchronous Replication
+ - [ ] SQL Data Storage
 
- - Reliable, Partially-synchronous Messaging
- - Reliable, Partially-synchronous Replication
- - SQL Data Storage
-
- - Basic Team Chat
- - Basic Team Project-management
- - Basic Team Decision-making
+ - [ ] Basic Team Chat
+ - [ ] Basic Team Project-management
+ - [ ] Basic Team Decision-making
 
 2. Basic Organization App
-abilities of all three layers
+ - [ ] Multi-Database Replication 
 
- - Multi-Database Replication 
+ - [ ] Basic Member System
+ - [ ] Basic Calender
+ - [ ] Basic Environment Modeling
 
- - Basic Member
- - Basic Calender
- - Basic Environment Modeling
+Unorganized
+
+ - [ ] Rust implementation of Reticulum
 
 ## Compiling from source
 
-1. Ensure you have [Rust](https://www.rust-lang.org/tools/install), [Python 3](https://www.python.org/downloads/), and Reticulum (with ```pip install RNS```) installed.
+1. Ensure you have [Rust](https://www.rust-lang.org/tools/install), [Python 3](https://www.python.org/downloads/), and Reticulum (with ```pip install RNS```) installed. Reticulum in particular is the basic p2p networking tool for prefengine.
 2. Clone the repository:
     ```bash
     git clone https://github.com/your-username/your-repo.git
@@ -40,23 +45,38 @@ abilities of all three layers
 3. Build the project:
 Linux:
     ```bash
-    .\\linux_build.bat
-    cargo build
+    ./linux_build.sh
     ```
 
 Windows:
     ```bash
     .\\win_build.bat
-    cargo build
     ```
 
 4. Run the project:
-    ```bash
+    ```
     cargo run
     ```
 
-If the server is running, the web ui can be accessed at http://localhost:3500 by default.
+If the server is running, the (for now non-HTML) endpoints can be accessed at http://localhost:3500 by default.
 
+
+## Source Tree Map
+
+See the docs repo for more information on design choices.
+
+```
+├───api # Localhost server, representing the API layer. Only has a few testing endpoints that serve plaintext as of right now.
+│   └───src
+├───data # Config and serialized peer data. Used by build system for accessing these files at runtime
+├───pref # Main functionalities of technical layer; nat traversal in discovery, other basic functions
+│   └───src
+│       ├───app # Entry point & high-level funcs
+│       ├───core # Logging, etc.
+│       └───peer_server # p2p management, database management
+├───pref-ret # Python script acting as a reverse proxy for rust to communicate with to enable usage of reticulum for now. includes management of config, connections, addressing, etc.
+
+```
 
 ## Contributing
 
@@ -80,5 +100,5 @@ If you have found a bug or issue in this project, please report it using the iss
 
 If you are interested in contributing significant code to the project, please coordinate the effort with one of the main developers in Discord before submitting a pull request. Before deciding to contribute, it is also a good idea to ensure your efforts are in alignment with the Roadmap and current development focus.
 
-By contributing code to this project, you agree that copyright for the code is transferred to the Reticulum maintainers and that the code is irrevocably placed under the Apache license.
+By contributing code to this project, you agree that copyright for the code is placed under the Apache license.
 
