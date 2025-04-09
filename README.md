@@ -39,8 +39,8 @@ Unorganized
 1. Ensure you have [Rust](https://www.rust-lang.org/tools/install), [Python 3](https://www.python.org/downloads/), and Reticulum (with ```pip install RNS```) installed. Reticulum in particular is the basic p2p networking tool for prefengine.
 2. Clone the repository:
     ```bash
-    git clone https://github.com/your-username/your-repo.git
-    cd your-repo
+    git clone https://github.com/prefigurativeengine/prefengine.git
+    cd prefengine
     ```
 3. Build the project:
 Linux:
@@ -86,11 +86,11 @@ See the docs repo for more information on design choices.
 
 If you want to ask a question, do not open an issue.
 
-Instead, ask away on the discussions or on the Discord at https://discord.gg/Gdk63XHeGdk63XHe
+Instead, ask away on the discussions or on the Discord at https://discord.gg/eaERWJS6hM
 
 ### Providing Feedback & Ideas
 
-Likewise, feedback, ideas and feature requests are a very welcome way to contribute (especially from real-life organizers), and should also be posted on the discussions, or on the Discord at https://discord.gg/Gdk63XHeGdk63XHe
+Likewise, feedback, ideas and feature requests are a very welcome way to contribute (especially from real-life organizers), and should also be posted on the discussions, or on the Discord at https://discord.gg/eaERWJS6hM
 
 Please do not post feature requests or general ideas on the issue tracker, or in direct messages to the primary developers. You are much more likely to get a response and start a constructive discussion by posting your ideas in the public channels created for these purposes.
 
