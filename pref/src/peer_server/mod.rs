@@ -77,7 +77,7 @@ impl Client {
             for peer in peers {
                 match self.peer_connect(&peer.addr.dest_hash) {
                     Ok((_)) => {
-                        log::info!("Sent reconnect msg to reverse proxy for {}", peer.id.value);
+                        log::info!("Sent reconnect msg to reverse proxy for peer id {}", peer.id.value);
                     }
 
                     Err(error_s) => {
@@ -92,9 +92,6 @@ impl Client {
     }
 
     fn peer_connect(&mut self, peer_dest: &String) -> Result<usize, std::io::Error> {
-        // TODO: run through a list of connection tactics according to values in peerinfo
-        // TODO: check if connect attempt succeeded
-
         let id_cpy = peer_dest.clone();
         let json_s_r = Client::format_for_ret(Some(id_cpy), FO_RECONNECT_ACTION, None);
         if let Err(err) = json_s_r {
@@ -133,6 +130,7 @@ impl Client {
     }
 
     fn ret_send(&mut self, data: String) -> Result<usize, std::io::Error> {
+        // FIXME: pyret.py does not recongnize sent data, only the connection in new().
         return self.ret_api_conn.write(data.as_bytes());
     }
 

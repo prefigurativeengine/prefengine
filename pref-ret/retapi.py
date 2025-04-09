@@ -4,6 +4,7 @@ import json
 import os
 import base64
 import sys
+import logging
 
 import RNS
 
@@ -12,6 +13,9 @@ ASPECTS = 'main'
 
 # TODO: make engine configuration that specifies this
 RET_DATA_PATH = os.path.join(os.path.expanduser('~'), '.prefengine', 'reticulum')
+
+log = logging.getLogger(__name__)
+logging.basicConfig(filename='pyret.log', encoding='utf-8', level=logging.DEBUG)
 
 
 # TODO: mark private methods, add timeouts, make async
@@ -48,10 +52,12 @@ class RNSApi:
         server_socket.bind((host, port))
         server_socket.listen(0)
 
-        print(f"Server listening on {host}:{port}")
+        log.info(f"Server listening on {host}:{port}")
         while True:
             self.client_socket, _ = server_socket.accept()
+            log.info("Client connection recieved")
             
+            # FIXME: pyret.py does not recongnize sent data, only the connection in new().
             data = b''
             while True:
                 chunk = self.client_socket.recv(1024)
@@ -61,21 +67,22 @@ class RNSApi:
                 
             try:
                 json_data = json.loads(data.decode('utf-8'))
+                log.info("Client JSON request parsed")
 
                 # TODO: send info on remote send success or failure
                 self.handle_json(json_data)
             except json.JSONDecodeError:
-                print("Error: Received invalid JSON data", file=sys.stderr)
+                log.error("Error: Received invalid JSON data", file=sys.stderr)
             
 
     def handle_json(self, json_req: dict):
         # validate
         if not json_req["action"]:
-            print("action in JSON not set.")
+            log.error("action in JSON not set.")
             return
         
         elif not isinstance(json_req["action"], str):
-            print("action in JSON not a string.")
+            log.error("action in JSON not a string.")
             return
         
         # init request and reticulum
@@ -83,20 +90,22 @@ class RNSApi:
         
         if action == "fo_reconnect":
             if not json_req["id"]:
-                print("id in JSON not set.")
+                log.error("id in JSON not set.")
                 return
             
+            log.info('Reconnect request recieved and parsed')
             self.fo_reconnect(json_req["id"])
         
         if action == "send":
             if not json_req["change"]:
-                print("change in JSON not set.")
+                log.error("change in JSON not set.")
                 return
             
             elif not isinstance(json_req["change"], dict):
-                print("change in JSON not an object.")
+                log.error("change in JSON not an object.")
                 return
             
+            log.info('Data request recieved and parsed')
             self.send_remote_res(json_req["change"])
 
 
@@ -142,6 +151,7 @@ class RNSApi:
 
     # only handles remote from-off reconnects
     def handle_remote_new(self, link: RNS.Link):
+        log.info('New remote link request recieved: ', str(base64.b64encode(link.destination.hash)))
         n_dto = self.convert_to_recieved_conn(link)
 
         # rust will make sure this destination is actually apart of the group
@@ -156,10 +166,12 @@ class RNSApi:
             link.set_resource_concluded_callback(self.handle_remote_res_fin)
 
         else:
+            log.info('New remote link request rejected')
             link.teardown()
 
 
     def handle_remote_res_fin(self, resource: RNS.Resource):
+        log.info('New resource request recieved')
         remote_json = self.convert_to_recieved_res(resource)
 
         self.client_send_from_remote_thread(remote_json)
@@ -175,7 +187,12 @@ class RNSApi:
     
     def fo_reconnect(self, id):
         # TODO: check for path exists for remote dest
-        rc_id = RNS.Identity.recall(id)
+        rc_id = RNS.Identity.recall(base64.b64decode(id))
+
+        if not rc_id:
+            log.error('Reconnect request recipient not known.')
+            return
+        
         rc_dest = RNS.Destination(
             rc_id,
             RNS.Destination.OUT,

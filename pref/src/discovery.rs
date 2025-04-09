@@ -46,6 +46,9 @@ use easy_upnp::{Ipv4Cidr, PortMappingProtocol, UpnpConfig, add_ports, delete_por
 use log::error;
 use std::error::Error;
 
+
+// TODO: Try other methods of NAT traversal other than upnp, like nat-pmp, configuring ipv6, STUN, TURN
+
 pub struct NATConfig {
     pub is_symmetric: bool,
     pub auto_port_forward: bool,

@@ -45,13 +45,15 @@ Unorganized
 3. Build the project:
 Linux:
     ```bash
-    ./linux_build.sh
+    ./linux_build.sh overwrite_data
     ```
 
 Windows:
     ```bash
-    .\\win_build.bat
+    .\\win_build.bat overwrite_data
     ```
+
+In the future, the build script must be run without the ```overwrite_data``` argument for peer and config data to not be overwritten.
 
 4. Run the project:
     ```
