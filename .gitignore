@@ -17,3 +17,7 @@ settings.json
 build/
 
 .vscode/
+
+.cargo/
+
+*.log

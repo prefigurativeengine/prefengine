@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::f32::consts::LOG10_2;
 use std::io::{Read, Write};
 use std::net::{self, Ipv4Addr, Ipv6Addr, TcpListener, TcpStream};
 use std::time::Duration;
@@ -40,7 +41,7 @@ impl Client {
                 Ok(st) => Ok(st),
                 Err(err) => {
                     // try again
-                    thread::sleep(Duration::from_millis(500));
+                    thread::sleep(Duration::from_millis(5000));
                     TcpStream::connect(RET_URL).map_err(|err| err.to_string())
                 }
             }
@@ -163,8 +164,30 @@ impl Listener {
                     let mut buf = String::new();
 
                     match stream.read_to_string(&mut buf) {
-                        Ok(usize) => {
-                            self.dispatch_ret_resp(buf);
+                        Ok(s) => {
+                            log::info!("Recieved message from reticulum of size: {}", s);
+
+
+                            match self.dispatch_ret_resp(buf) {
+                                Ok(()) => {
+                                    let dto: HashMap<&str, usize> = HashMap::from([
+                                        ("accepted", 0),
+                                    ]);
+
+                                    let s = serde_json::to_string(&dto).unwrap();
+                                    stream.write(s.as_bytes());
+                                },
+
+                                Err(err) => {
+                                    log::error!("Ret proxy handling failed: {}", err);
+                                    let dto: HashMap<&str, usize> = HashMap::from([
+                                        ("accepted", 1),
+                                    ]);
+
+                                    let s = serde_json::to_string(&dto).unwrap();
+                                    stream.write(s.as_bytes());
+                                }
+                            }
                         }
 
                         Err(err) => {
@@ -249,11 +272,17 @@ impl PeerStore {
                 if let Value::String(id_s) = id {
                     if p_info.addr.dest_hash == *id_s {
                         let disk_clone = p_info.clone();
+                        let log_clone = p_info.id.value.clone();
+
                         new_p = RemotePeer::new(p_info);
                         self.peers.push(new_p);
 
                         // add to persistant peers if new
-                        return RemotePeerInfo::append_peers_to_disk(vec![disk_clone]);
+                        RemotePeerInfo::append_peers_to_disk(vec![disk_clone])
+                            .map_err(|err| err.to_string())?;
+
+                        log::info!("Peer id {} successfully added to disk", log_clone);
+                        return Ok(());
                     }
                 } else {
                     return Err("incorrect value for id".to_owned());

@@ -7,10 +7,10 @@ use crate::discovery::NATConfig;
 use peer_server::PeerStore;
 use peer_server::ret_util;
 use std::env;
-use std::fs;
+use std::fs::{self, File};
 use std::net::Ipv4Addr;
 use std::path::Path;
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -78,7 +78,7 @@ impl Application {
             }
         }
 
-        let ret_proc: Child;
+        let mut ret_proc: Child;
         let ret_com = {
             if cfg!(target_os = "linux") {
                 Command::new("python3")
@@ -92,6 +92,8 @@ impl Application {
             }
             Err(e) => panic!("Failed to start reticulum: {}", e),
         }
+
+        //ret_proc.kill();
 
         if let Err(err) = peer_server::db::init() {
             panic!("Starting database failed: {}", err);
@@ -143,13 +145,15 @@ impl Application {
         }
         let ret_path = ret_path_o.unwrap();
 
-        let hash_b = ret_com
+        let pylog = File::create("pyret.log").map_err(|err| err.to_string())?;
+        let stdio = Stdio::from(pylog);
+
+        let hash = ret_com
+            .stdout(stdio)
             .args([ret_path, "first_start"])
             .output()
             .map_err(|err| err.to_string())?
             .stdout;
-
-        let hash = hash_b[5..hash_b.len()].to_owned();
 
         Ok(String::from_utf8(hash).map_err(|err| err.to_string())?)
     }
@@ -162,7 +166,11 @@ impl Application {
         }
         let ret_path = ret_path_o.unwrap();
 
+        let pylog = File::open("pyret.log").map_err(|err| err.to_string())?;
+        let stdio = Stdio::from(pylog);
+
         let ret = ret_com
+            .stdout(stdio)
             .args([ret_path])
             .spawn()
             .map_err(|err| err.to_string())?;
@@ -175,7 +183,7 @@ impl Application {
         let auth_pass = "test_password".to_owned();
 
         // TODO: support ipv6
-        ret_util::gen_config(capability, 4, auth_pass, None)
+        ret_util::gen_config(capability, 6, auth_pass, None)
     }
 
     pub fn stop() {

@@ -2,7 +2,6 @@ from typing import OrderedDict
 import socket
 import json
 import os
-import base64
 import sys
 import logging
 
@@ -15,7 +14,19 @@ ASPECTS = 'main'
 RET_DATA_PATH = os.path.join(os.path.expanduser('~'), '.prefengine', 'reticulum')
 
 log = logging.getLogger(__name__)
-logging.basicConfig(filename='pyret.log', encoding='utf-8', level=logging.DEBUG)
+logging.basicConfig(encoding='utf-8', level=logging.DEBUG)
+
+
+class AnnounceHandler:
+    def __init__(self, aspect_filter=None):
+        self.aspect_filter = aspect_filter
+
+    def received_announce(self, destination_hash, announced_identity, app_data):
+        log.info(
+            "Received an announce from "+
+            RNS.prettyhexrep(destination_hash)
+        )
+
 
 
 # TODO: mark private methods, add timeouts, make async
@@ -46,6 +57,14 @@ class RNSApi:
         self.peer_conns = {}
         self.client_socket = None
 
+        # announce functionality for learning of peers
+        announce_handler = AnnounceHandler()
+
+        RNS.Transport.register_announce_handler(announce_handler)
+
+        log.info("Sending announce on all interfaces")
+        self.new_peer_dest.announce()
+
 
     def client_listen(self, host='127.0.0.1', port=3502):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -57,22 +76,27 @@ class RNSApi:
             self.client_socket, _ = server_socket.accept()
             log.info("Client connection recieved")
             
-            # FIXME: pyret.py does not recongnize sent data, only the connection in new().
-            data = b''
-            while True:
-                chunk = self.client_socket.recv(1024)
-                if not chunk:
-                    break
-                data += chunk
-                
             try:
-                json_data = json.loads(data.decode('utf-8'))
-                log.info("Client JSON request parsed")
+                data = b''
+                while True:
+                    chunk = self.client_socket.recv(1024)
+                    if not chunk:
+                        break
+                    
+                    data += chunk
+                    try:
+                        # Try to parse what we have so far
+                        json_data = json.loads(data.decode('utf-8'))
+                        log.info("Client JSON request parsed")
 
-                # TODO: send info on remote send success or failure
-                self.handle_json(json_data)
-            except json.JSONDecodeError:
-                log.error("Error: Received invalid JSON data", file=sys.stderr)
+                        # TODO: send info on remote send success or failure
+                        self.handle_json(json_data)
+                    except json.JSONDecodeError:
+                        # Might be incomplete data, continue receiving
+                        pass
+                        
+            except Exception as e:
+                log.error(f"Error: {e}", file=sys.stderr)
             
 
     def handle_json(self, json_req: dict):
@@ -140,6 +164,9 @@ class RNSApi:
             ASPECTS
         )
 
+        log.info('New peer dest hash: ' + self.new_peer_dest.hexhash)
+
+
         # TODO: test the computational and bandwidth cost of proving all 
         self.new_peer_dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
 
@@ -151,11 +178,11 @@ class RNSApi:
 
     # only handles remote from-off reconnects
     def handle_remote_new(self, link: RNS.Link):
-        log.info('New remote link request recieved: ', str(base64.b64encode(link.destination.hash)))
+        log.info('New remote link request recieved: ' + link.destination.hexhash)
         n_dto = self.convert_to_recieved_conn(link)
 
         # rust will make sure this destination is actually apart of the group
-        resp = self.client_send_from_remote_thread(n_dto, True)
+        resp = self.client_send_from_remote_thread(n_dto.encode(), True)
 
         # only put in conn dict if a valid peer
         if resp["accepted"] == 0:
@@ -174,10 +201,14 @@ class RNSApi:
         log.info('New resource request recieved')
         remote_json = self.convert_to_recieved_res(resource)
 
-        self.client_send_from_remote_thread(remote_json)
+        self.client_send_from_remote_thread(remote_json.encode())
 
 
     def send_remote_res(self, data):
+        if len(self.peer_conns) == 0:
+            log.error("Send action was called when no peer connections exist")
+            return
+        
         for id in self.peer_conns.keys():
             res = RNS.Resource(data, self.peer_conns[id])
 
@@ -186,11 +217,10 @@ class RNSApi:
 
     
     def fo_reconnect(self, id):
-        # TODO: check for path exists for remote dest
-        rc_id = RNS.Identity.recall(base64.b64decode(id))
+        rc_id = RNS.Identity.recall(bytes.fromhex(id))
 
         if not rc_id:
-            log.error('Reconnect request recipient not known.')
+            log.error('Reconnect request recipient not known for <' + id + '>')
             return
         
         rc_dest = RNS.Destination(
@@ -198,10 +228,12 @@ class RNSApi:
             RNS.Destination.OUT,
             RNS.Destination.SINGLE,
             APP_NAME,
+            ASPECTS
         )
 
         # TODO: somehow make this less intrusive to the devices private key?
         def identify_self(link):
+            log.info('Link has been established to <' + link.destination.hexhash + '>')
             link.identify(self.identity)
 
         r_link = RNS.Link(rc_dest, identify_self)
@@ -213,6 +245,7 @@ class RNSApi:
 
 
     def client_send_from_remote_thread(self, data, recv_after=False):
+        log.info("Sending data to client of char len size: " + str(len(data)))
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind(('127.0.0.1', 0))
         s.connect(('127.0.0.1', 3501))
@@ -231,13 +264,26 @@ class RNSApi:
             chunk = s.recv(1024)
             if not chunk:
                 break
+            
             data += chunk
-        return json.loads(data.decode('utf-8'))
+            try:
+                # Try to parse what we have so far
+                return json.loads(data.decode('utf-8'))
+            
+            except json.JSONDecodeError:
+                # Might be incomplete data, continue receiving
+                pass
+            
+            except UnicodeDecodeError:
+                pass
+
+        log.error(f"Failed to decode recieved client data after remote message")
+        return {"accepted": 1}
     
     def convert_to_recieved_conn(self, link: RNS.Link):
         remote_json = OrderedDict()
         remote_json['action'] = "new_peer"
-        remote_json['id'] = str(base64.b64encode(link.destination.hash))
+        remote_json['id'] = link.destination.hexhash
         # hardcoded to tcp for now
         remote_json['ptp_conn'] = {"physical_type": "tcp"}
 
@@ -254,6 +300,8 @@ class RNSApi:
 
 def start_api():
     api = RNSApi()
+    print('Reticulum reverse proxy initialized')
+
     api.client_listen()
 
 if __name__ == "__main__":
@@ -269,7 +317,13 @@ if __name__ == "__main__":
 
         # sends self peer id to rust
         sys.stdout = sys.__stdout__
-        hash = str(base64.b64encode(RNS.Destination.hash(identity, APP_NAME, ASPECTS)))
+        hash = RNS.Destination(
+            identity,
+            RNS.Destination.IN,
+            RNS.Destination.SINGLE,
+            APP_NAME,
+            ASPECTS
+        ).hexhash
         print(hash)
 
         sys.stdout = nullout
