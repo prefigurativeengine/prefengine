@@ -1,3 +1,4 @@
+import time
 from typing import OrderedDict
 import socket
 import json
@@ -146,7 +147,7 @@ class RNSApi:
         )
 
         # TODO: test the computational and bandwidth cost of proving all 
-        self.reconnect_dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
+        # self.reconnect_dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
 
         # self.reconnect_dest.enable_ratchets(self.RATCHET_PATH)
         # self.reconnect_dest.enforce_ratchets()
@@ -168,7 +169,7 @@ class RNSApi:
 
 
         # TODO: test the computational and bandwidth cost of proving all 
-        self.new_peer_dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
+        # self.new_peer_dest.set_proof_strategy(RNS.Destination.PROVE_ALL)
 
         # self.new_peer_dest.enable_ratchets(self.RATCHET_PATH)
         # self.new_peer_dest.enforce_ratchets()
@@ -178,7 +179,9 @@ class RNSApi:
 
     # only handles remote from-off reconnects
     def handle_remote_new(self, link: RNS.Link):
-        log.info('New remote link request recieved: ' + link.destination.hexhash)
+        link.set_link_closed_callback(self.link_closed)
+
+        log.info('New remote link request recieved: ' + self.get_source_dest_from_link(link))
         n_dto = self.convert_to_recieved_conn(link)
 
         # rust will make sure this destination is actually apart of the group
@@ -232,25 +235,36 @@ class RNSApi:
         )
 
         # TODO: somehow make this less intrusive to the devices private key?
-        def identify_self(link):
+        def identify_self(link: RNS.Link):
             log.info('Link has been established to <' + link.destination.hexhash + '>')
             link.identify(self.identity)
+            log.info('Identified self to <' + link.destination.hexhash + '>')
 
         r_link = RNS.Link(rc_dest, identify_self)
 
         r_link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
         r_link.set_resource_concluded_callback(self.handle_remote_res_fin)
+        r_link.set_link_closed_callback(self.link_closed)
 
         self.peer_conns[id] = r_link
 
 
+    def link_closed(self, link):
+        if link.teardown_reason == RNS.Link.TIMEOUT:
+            log.info("The link timed out")
+        elif link.teardown_reason == RNS.Link.DESTINATION_CLOSED:
+            log.info("The link was closed by the remote peer")
+        else:
+            log.info("Link closed")
+
+
     def client_send_from_remote_thread(self, data, recv_after=False):
-        log.info("Sending data to client of char len size: " + str(len(data)))
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind(('127.0.0.1', 0))
+        #s.bind(('127.0.0.1', 0))
         s.connect(('127.0.0.1', 3501))
 
         s.sendall(data)
+        log.info("Sent data to client of char len size: " + str(len(data)))
 
         if recv_after:
             json_obj = self.recv_then_parse(s)
@@ -261,6 +275,7 @@ class RNSApi:
     def recv_then_parse(self, s):
         data = b''
         while True:
+            log.info("Listening for data from client")
             chunk = s.recv(1024)
             if not chunk:
                 break
@@ -277,17 +292,31 @@ class RNSApi:
             except UnicodeDecodeError:
                 pass
 
-        log.error(f"Failed to decode recieved client data after remote message")
+        log.error("Failed to decode recieved client data after remote message")
         return {"accepted": 1}
     
     def convert_to_recieved_conn(self, link: RNS.Link):
         remote_json = OrderedDict()
         remote_json['action'] = "new_peer"
-        remote_json['id'] = link.destination.hexhash
+        remote_json['id'] = self.get_source_dest_from_link(link)
         # hardcoded to tcp for now
         remote_json['ptp_conn'] = {"physical_type": "tcp"}
 
         return json.dumps(remote_json)
+    
+    def get_source_dest_from_link(self, link: RNS.Link):
+        if not link.get_remote_identity():
+            log.warning("Link remote identity was requested when remote peer wasn't identified, waiting")
+
+        while True:
+            id = link.get_remote_identity()
+            if not id:
+                time.sleep(0.5)
+                continue
+
+            hex = RNS.Destination.hash(id, APP_NAME, ASPECTS).hex()
+            log.info(hex + "  Peer identified")
+            return hex
     
     def convert_to_recieved_res(self, res: RNS.Resource):
         remote_json = OrderedDict()

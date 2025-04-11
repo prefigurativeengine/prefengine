@@ -161,14 +161,23 @@ impl Listener {
         for stream in self.inner_listener.incoming() {
             match stream {
                 Ok(mut stream) => {
-                    let mut buf = String::new();
+                    // FIXME: caps size of resource messages
+                    let mut buf_v = vec![0; 1024];
 
-                    match stream.read_to_string(&mut buf) {
-                        Ok(s) => {
-                            log::info!("Recieved message from reticulum of size: {}", s);
+                    match stream.read(&mut buf_v) {
+                        Ok(size) => {
+                            log::info!("Recieved message from reticulum of size: {}", size);
 
+                            // try converting to string, then cut off any empty bytes for clean string
+                            let res = String::from_utf8(buf_v);
+                            if let Err(err) = res {
+                                log::error!("Ret proxy parsing failed: {}", err);
+                                continue;
+                            }
+                            let buf_s_dirty = res.unwrap();
+                            let buf_s = buf_s_dirty.trim_matches(char::from(0)).to_owned();
 
-                            match self.dispatch_ret_resp(buf) {
+                            match self.dispatch_ret_resp(buf_s) {
                                 Ok(()) => {
                                     let dto: HashMap<&str, usize> = HashMap::from([
                                         ("accepted", 0),
@@ -202,26 +211,26 @@ impl Listener {
 
     fn dispatch_ret_resp(&self, resp: String) -> Result<(), String> {
         // HACK: use rpc library
-        let new_peer = "{\"action\":\"new_peer";
-        let resc_fin = "{\"action\":\"resc_fin";
+        const new_peer: &str = "new_peer";
+        const resc_fin: &str = "resc_fin";
 
-        match &resp[0..19] {
-            new_peer => {
-                let resp_map = serde_json::from_str(&resp).map_err(|err| err.to_string())?;
+        //let action_s = &resp[0..19];
+        if resp.contains(new_peer) {
+            let resp_map = serde_json::from_str(&resp).map_err(|err| err.to_string())?;
 
-                let mut ps = self.peers.lock().unwrap();
+            let mut ps = self.peers.lock().unwrap();
 
-                let check_res = ps.check_peer_req(&resp_map);
-                if check_res.is_ok() {
-                    ps.add_peer(resp_map);
-                    return Ok(());
-                } else {
-                    return Err("Peer validation failed".to_owned());
-                }
+            let check_res = ps.check_peer_req(&resp_map);
+            if check_res.is_ok() {
+                ps.add_peer(resp_map);
+                return Ok(());
+            } else {
+                return Err("Peer validation failed".to_owned());
             }
-            resc_fin => {
-                return peer_db::process_remote_change(resp);
-            }
+        } else if resp.contains(resc_fin) {
+            return peer_db::process_remote_change(resp);
+        } else {
+            return Err("Unrecongnized action".to_owned());
         }
     }
 }
