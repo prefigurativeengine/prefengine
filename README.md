@@ -8,11 +8,11 @@ For more information on details regarding the initial decisions made for the pro
 
 ## Features
 
-Currently the program is capable of basic functions like a startup process (constructing config and starting certain important network systems), and take basic input about peers through the API, but can only do low-level p2p networking through the reticulum library, and not actually construct a connection to send data over.
+Currently the program is capable of basic functions like a startup process (constructing config and starting certain important network systems), and take basic input about peers through the API. However it can only semi-reliably perform low-level networking through the reticulum library, with all other functions like replicating data very unreliable and dysfunctional at the moment.
 
 ## Roadmap
 
-The following broad milestones listed represent the kind of app prefengine should be capable of producing. Subject to change.
+The following broad milestones listed represent the kind of app prefengine should be capable of producing. As of mid-april the "Prototype" stage is almost reached.
 
 0. Protoype (Basic implementation of essential functions)
 
@@ -45,14 +45,15 @@ Unorganized
     cd prefengine
     ```
 3. Build the project:
+
 Linux:
-    ```bash
+    ```
     ./linux_build.sh overwrite_data
     ```
 
 Windows:
-    ```bash
-    .\\win_build.bat overwrite_data
+    ```
+    .\win_build.bat overwrite_data
     ```
 
 In the future, the build script must be run without the ```overwrite_data``` argument for peer and config data to not be overwritten.
