@@ -78,7 +78,7 @@ impl Application {
             }
         }
 
-        let mut ret_proc: Child;
+        let ret_proc: Child;
         let ret_com = {
             if cfg!(target_os = "linux") {
                 Command::new("python3")
@@ -93,7 +93,7 @@ impl Application {
             Err(e) => panic!("Failed to start reticulum: {}", e),
         }
 
-        //ret_proc.kill();
+        // ret_proc.kill();
 
         if let Err(err) = peer_server::db::init() {
             panic!("Starting database failed: {}", err);
@@ -221,6 +221,10 @@ impl Application {
         // refresh online peers
         self.client.peer_connect_all()?;
         Ok(())
+    }
+
+    pub fn get_self_peer(&self) -> Result<SelfPeerInfo, String> {
+        SelfPeerInfo::load_self_peer()
     }
 
     fn is_first_time() -> bool {

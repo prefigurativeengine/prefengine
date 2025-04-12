@@ -221,11 +221,18 @@ impl Listener {
             let mut ps = self.peers.lock().unwrap();
 
             let check_res = ps.check_peer_req(&resp_map);
-            if check_res.is_ok() {
-                ps.add_peer(resp_map);
-                return Ok(());
-            } else {
-                return Err("Peer validation failed".to_owned());
+            match check_res {
+                Ok(b) => {
+                    if b {
+                        return ps.add_peer(resp_map);
+                    } else {
+                        return Err("Peer not in peer group".to_owned());
+                    }
+                    
+                }
+                Err(e) => {
+                    return Err("Peer validation failed: ".to_owned() + &e);
+                }
             }
         } else if resp.contains(resc_fin) {
             return peer_db::process_remote_change(resp);
@@ -280,17 +287,12 @@ impl PeerStore {
             if let Some(id) = new_peer.get("id") {
                 if let Value::String(id_s) = id {
                     if p_info.addr.dest_hash == *id_s {
-                        let disk_clone = p_info.clone();
                         let log_clone = p_info.id.value.clone();
 
                         new_p = RemotePeer::new(p_info);
                         self.peers.push(new_p);
 
-                        // add to persistant peers if new
-                        RemotePeerInfo::append_peers_to_disk(vec![disk_clone])
-                            .map_err(|err| err.to_string())?;
-
-                        log::info!("Peer id {} successfully added to disk", log_clone);
+                        log::info!("Online peer id {} successfully stored", log_clone);
                         return Ok(());
                     }
                 } else {

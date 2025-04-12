@@ -11,6 +11,17 @@ use std::{collections::HashMap, sync::Mutex};
 
 use std::sync::Arc;
 
+async fn get_ret_dest(Extension(app): Extension<Arc<Mutex<Application>>>) -> Html<String> {
+    let app_locked = app.lock().unwrap();
+    let selfp = app_locked.get_self_peer();
+    if let Err(err) = selfp {
+        log::error!("Getting csv string failed: {}", err);
+        return Html("<h1>Err</h1>".to_owned());
+    }
+
+    Html(selfp.unwrap().addr.dest_hash)
+}
+
 async fn get_csv(Extension(app): Extension<Arc<Mutex<Application>>>) -> Html<String> {
     let app_locked = app.lock().unwrap();
     let csv_str_r = app_locked.get_db_data();
@@ -59,10 +70,11 @@ async fn transform_temp_peer(
 
 pub async fn start(app: Application) {
     let route: HashMap<&str, &str> = HashMap::from([
-        ("root", "/"),
+        ("get_csv", "/"),
         ("set_csv", "/set-csv"),
         ("transform_temp_peer", "/transform-temp"),
         ("add_temp", "/add-temp"),
+        ("get_ret_dest", "/get-dest"),
     ]);
 
     let port: &str = ":3500";
@@ -72,10 +84,11 @@ pub async fn start(app: Application) {
     let shared_app: Arc<Mutex<Application>> = Arc::new(Mutex::new(app));
 
     let router = Router::new()
-        .route(route["root"], get(get_csv))
+        .route(route["get_csv"], get(get_csv))
         .route(route["set_csv"], post(set_csv))
         .route(route["transform_temp_peer"], post(transform_temp_peer))
         .route(route["add_temp"], post(add_temp))
+        .route(route["get_ret_dest"], get(get_ret_dest))
         .layer(Extension(shared_app));
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();

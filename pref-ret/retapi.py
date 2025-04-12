@@ -97,7 +97,7 @@ class RNSApi:
                         pass
                         
             except Exception as e:
-                log.error(f"Error: {e}", file=sys.stderr)
+                log.error(f"Error: {e}")
             
 
     def handle_json(self, json_req: dict):
@@ -179,10 +179,12 @@ class RNSApi:
 
     # only handles remote from-off reconnects
     def handle_remote_new(self, link: RNS.Link):
+        link.set_remote_identified_callback(self.handle_remote_id)
         link.set_link_closed_callback(self.link_closed)
 
-        log.info('New remote link request recieved: ' + self.get_source_dest_from_link(link))
-        n_dto = self.convert_to_recieved_conn(link)
+    def handle_remote_id(self, link, identity):
+        log.info('New identified link request recieved: ' + self.get_source_dest_from_link(identity))
+        n_dto = self.convert_to_recieved_conn(identity)
 
         # rust will make sure this destination is actually apart of the group
         resp = self.client_send_from_remote_thread(n_dto.encode(), True)
@@ -260,7 +262,7 @@ class RNSApi:
 
     def client_send_from_remote_thread(self, data, recv_after=False):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        #s.bind(('127.0.0.1', 0))
+        # s.bind(('127.0.0.1', 0))
         s.connect(('127.0.0.1', 3501))
 
         s.sendall(data)
@@ -295,28 +297,19 @@ class RNSApi:
         log.error("Failed to decode recieved client data after remote message")
         return {"accepted": 1}
     
-    def convert_to_recieved_conn(self, link: RNS.Link):
+    def convert_to_recieved_conn(self, id: RNS.Identity):
         remote_json = OrderedDict()
         remote_json['action'] = "new_peer"
-        remote_json['id'] = self.get_source_dest_from_link(link)
+        remote_json['id'] = self.get_source_dest_from_link(id)
         # hardcoded to tcp for now
         remote_json['ptp_conn'] = {"physical_type": "tcp"}
 
         return json.dumps(remote_json)
     
-    def get_source_dest_from_link(self, link: RNS.Link):
-        if not link.get_remote_identity():
-            log.warning("Link remote identity was requested when remote peer wasn't identified, waiting")
-
-        while True:
-            id = link.get_remote_identity()
-            if not id:
-                time.sleep(0.5)
-                continue
-
-            hex = RNS.Destination.hash(id, APP_NAME, ASPECTS).hex()
-            log.info(hex + "  Peer identified")
-            return hex
+    def get_source_dest_from_link(self, identity):
+        hex = RNS.Destination.hash(identity, APP_NAME, ASPECTS).hex()
+        log.info(hex + "  Peer identified")
+        return hex
     
     def convert_to_recieved_res(self, res: RNS.Resource):
         remote_json = OrderedDict()

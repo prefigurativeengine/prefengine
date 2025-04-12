@@ -4,15 +4,15 @@ Prefengine is an application designed to provide a unified interface to create b
 
 Right now the project has been planned out extensively, however the actual code is very minimal and the few basic features it does have have not been made robust. The roadmap below lays out where the project is currently expected to go in the future.
 
+## Features
+
+Currently the program is capable of basic functions like a startup process (constructing config and starting certain important network systems), and take basic input about peers through the API, but can only do low-level p2p networking through the reticulum library, and not actually construct a connection to send data over.
+
 ## Roadmap
 
 The following broad milestones listed represent the kind of app prefengine should be capable of producing. Subject to change.
 
 0. Protoype (Basic implementation of essential functions)
- - [x] Storing peer data
- - [x] Storing app data
- - [x] NAT traversal
- - [ ] Messaging peers (Most functions for this are created using Reticulum, however communication still isn't up and running yet)
 
 1. Basic Team Collaboration App
  - [ ] Reliable, Partially-synchronous Messaging
@@ -39,7 +39,7 @@ Unorganized
 1. Ensure you have [Rust](https://www.rust-lang.org/tools/install), [Python 3](https://www.python.org/downloads/), and Reticulum (with ```pip install RNS```) installed. Reticulum in particular is the basic p2p networking tool for prefengine.
 2. Clone the repository:
     ```bash
-    git clone https://github.com/your-username/your-repo.git
+    git clone https://github.com/prefigurativeengine/prefengine.git
     cd your-repo
     ```
 3. Build the project:
@@ -57,10 +57,11 @@ In the future, the build script must be run without the ```overwrite_data``` arg
 
 4. Run the project:
     ```
+    cd target/debug
     cargo run
     ```
 
-If the server is running, the (for now non-HTML) endpoints can be accessed at http://localhost:3500 by default.
+If the server is running, the endpoints (listed in webserver.rs) can be accessed at http://localhost:3500 by default.
 
 
 ## Source Tree Map
@@ -86,13 +87,13 @@ See the docs repo for more information on design choices.
 
 If you want to ask a question, do not open an issue.
 
-Instead, ask away on the discussions or on the Discord at https://discord.gg/Gdk63XHeGdk63XHe
+Instead, ask away on the discussions or on the Discord at https://discord.gg/eaERWJS6hM
 
 ### Providing Feedback & Ideas
 
-Likewise, feedback, ideas and feature requests are a very welcome way to contribute (especially from real-life organizers), and should also be posted on the discussions, or on the Discord at https://discord.gg/Gdk63XHeGdk63XHe
+Likewise, feedback, ideas and feature requests are a very welcome way to contribute (especially from real-life organizers), and should also be posted on the discussions, or on the Discord at https://discord.gg/eaERWJS6hM
 
-Please do not post feature requests or general ideas on the issue tracker, or in direct messages to the primary developers. You are much more likely to get a response and start a constructive discussion by posting your ideas in the public channels created for these purposes.
+Please do not post feature requests or general ideas on the issue tracker. You are much more likely to get a response and start a constructive discussion by posting your ideas in the public channels created for these purposes.
 
 ### Reporting Issues
 
