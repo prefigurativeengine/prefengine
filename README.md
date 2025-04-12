@@ -2,7 +2,7 @@
 
 Prefengine is an application designed to provide a unified interface to create business software similar to an ERP or BPM, but for grassroots, activist organizations.  By solving issues present in horizontal organizing with a private peer-to-peer network, the project hopes to make organizing less exhausting and more accessible for everyone involved. In more technical terms, it is engine software that will construct and run an organizational p2p app, made in Rust.
 
-Right now the project has been planned out extensively, however the actual code is very minimal and the few basic features it does have have not been made robust. The roadmap below lays out where the project is currently expected to go in the future.
+Right now the project has been planned out extensively, however the actual code is very minimal and the few basic things it can do have not been made robust. The roadmap below lays out where the project is currently expected to go in the future.
 
 ## Features
 
@@ -40,7 +40,7 @@ Unorganized
 2. Clone the repository:
     ```bash
     git clone https://github.com/prefigurativeengine/prefengine.git
-    cd your-repo
+    cd prefengine
     ```
 3. Build the project:
 Linux:
@@ -62,7 +62,6 @@ In the future, the build script must be run without the ```overwrite_data``` arg
     ```
 
 If the server is running, the endpoints (listed in webserver.rs) can be accessed at http://localhost:3500 by default.
-
 
 ## Source Tree Map
 
