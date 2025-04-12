@@ -78,7 +78,10 @@ impl Client {
             for peer in peers {
                 match self.peer_connect(&peer.addr.dest_hash) {
                     Ok((_)) => {
-                        log::info!("Sent reconnect msg to reverse proxy for peer id {}", peer.id.value);
+                        log::info!(
+                            "Sent reconnect msg to reverse proxy for peer id {}",
+                            peer.id.value
+                        );
                     }
 
                     Err(error_s) => {
@@ -92,7 +95,7 @@ impl Client {
         }
     }
 
-    fn peer_connect(&mut self, peer_dest: &String) -> Result<usize, std::io::Error> {
+    fn peer_connect(&mut self, peer_dest: &String) -> Result<(), std::io::Error> {
         let id_cpy = peer_dest.clone();
         let json_s_r = Client::format_for_ret(Some(id_cpy), FO_RECONNECT_ACTION, None);
         if let Err(err) = json_s_r {
@@ -130,9 +133,16 @@ impl Client {
         }
     }
 
-    fn ret_send(&mut self, data: String) -> Result<usize, std::io::Error> {
-        // FIXME: pyret.py does not recongnize sent data, only the connection in new().
-        return self.ret_api_conn.write(data.as_bytes());
+    fn ret_send(&mut self, data: String) -> Result<(), std::io::Error> {
+        match self.ret_api_conn.write_all(data.as_bytes()) {
+            Ok(_) => {
+                if let Err(e) = self.ret_api_conn.flush() {
+                    return Err(e);
+                }
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+        }
     }
 
     fn try_traversal_methods() {}
@@ -179,22 +189,34 @@ impl Listener {
 
                             match self.dispatch_ret_resp(buf_s) {
                                 Ok(()) => {
-                                    let dto: HashMap<&str, usize> = HashMap::from([
-                                        ("accepted", 0),
-                                    ]);
+                                    let dto: HashMap<&str, usize> =
+                                        HashMap::from([("accepted", 0)]);
 
                                     let s = serde_json::to_string(&dto).unwrap();
-                                    stream.write(s.as_bytes());
-                                },
+                                    match stream.write_all(s.as_bytes()) {
+                                        Ok(_) => {
+                                            if let Err(e) = stream.flush() {
+                                                log::error!("Failed to flush stream: {}", e);
+                                            }
+                                        }
+                                        Err(e) => log::error!("Failed to write response: {}", e),
+                                    }
+                                }
 
                                 Err(err) => {
                                     log::error!("Ret proxy handling failed: {}", err);
-                                    let dto: HashMap<&str, usize> = HashMap::from([
-                                        ("accepted", 1),
-                                    ]);
+                                    let dto: HashMap<&str, usize> =
+                                        HashMap::from([("accepted", 1)]);
 
                                     let s = serde_json::to_string(&dto).unwrap();
-                                    stream.write(s.as_bytes());
+                                    match stream.write_all(s.as_bytes()) {
+                                        Ok(_) => {
+                                            if let Err(e) = stream.flush() {
+                                                log::error!("Failed to flush stream: {}", e);
+                                            }
+                                        }
+                                        Err(e) => log::error!("Failed to write response: {}", e),
+                                    }
                                 }
                             }
                         }
@@ -228,7 +250,6 @@ impl Listener {
                     } else {
                         return Err("Peer not in peer group".to_owned());
                     }
-                    
                 }
                 Err(e) => {
                     return Err("Peer validation failed: ".to_owned() + &e);

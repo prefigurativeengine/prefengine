@@ -182,6 +182,7 @@ class RNSApi:
         link.set_remote_identified_callback(self.handle_remote_id)
         link.set_link_closed_callback(self.link_closed)
 
+
     def handle_remote_id(self, link, identity):
         log.info('New identified link request recieved: ' + self.get_source_dest_from_link(identity))
         n_dto = self.convert_to_recieved_conn(identity)
@@ -198,7 +199,7 @@ class RNSApi:
             link.set_resource_concluded_callback(self.handle_remote_res_fin)
 
         else:
-            log.info('New remote link request rejected')
+            log.info('New remote link request rejected, tearing down')
             link.teardown()
 
 
@@ -269,33 +270,44 @@ class RNSApi:
         log.info("Sent data to client of char len size: " + str(len(data)))
 
         if recv_after:
-            json_obj = self.recv_then_parse(s)
-            return json_obj
+            res_tuple = self.recv_then_parse(s)
+            if res_tuple[1] == True:
+                log.info("Data message successfully recieved from client after remote message")
+            else:
+                log.error("Failed to retrieve client data after remote message")
+            return res_tuple[0]
+        
         return {}
     
 
     def recv_then_parse(self, s):
+        s.settimeout(10.0)
+
         data = b''
         while True:
-            log.info("Listening for data from client")
-            chunk = s.recv(1024)
-            if not chunk:
-                break
-            
-            data += chunk
             try:
-                # Try to parse what we have so far
-                return json.loads(data.decode('utf-8'))
-            
-            except json.JSONDecodeError:
-                # Might be incomplete data, continue receiving
-                pass
-            
-            except UnicodeDecodeError:
-                pass
+                log.info("Listening for data from client")
+                chunk = s.recv(1024)
+                if not chunk:
+                    break
+                
+                data += chunk
+                try:
+                    # Try to parse what we have so far
+                    return (json.loads(data.decode('utf-8')), True)
+                
+                except json.JSONDecodeError:
+                    # Might be incomplete data, continue receiving
+                    pass
+                
+                except UnicodeDecodeError:
+                    pass
 
-        log.error("Failed to decode recieved client data after remote message")
-        return {"accepted": 1}
+            except socket.timeout:
+                log.warning("Client socket timed out while listening")
+                break
+
+        return ({"accepted": 1}, False)
     
     def convert_to_recieved_conn(self, id: RNS.Identity):
         remote_json = OrderedDict()

@@ -93,8 +93,6 @@ impl Application {
             Err(e) => panic!("Failed to start reticulum: {}", e),
         }
 
-        // ret_proc.kill();
-
         if let Err(err) = peer_server::db::init() {
             panic!("Starting database failed: {}", err);
         }
