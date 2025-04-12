@@ -4,6 +4,8 @@ Prefengine is an application designed to provide a unified interface to create b
 
 Right now the project has been planned out extensively, however the actual code is very minimal and the few basic things it can do have not been made robust. The roadmap below lays out where the project is currently expected to go in the future.
 
+For more information on details regarding the initial decisions made for the project, you can read the Design Document in the docs repo: https://github.com/prefigurativeengine/prefengine_docs
+
 ## Features
 
 Currently the program is capable of basic functions like a startup process (constructing config and starting certain important network systems), and take basic input about peers through the API, but can only do low-level p2p networking through the reticulum library, and not actually construct a connection to send data over.
@@ -100,7 +102,7 @@ If you have found a bug or issue in this project, please report it using the iss
 
 ### Writing Code
 
-If you are interested in contributing significant code to the project, please coordinate the effort with one of the main developers in Discord before submitting a pull request. Before deciding to contribute, it is also a good idea to ensure your efforts are in alignment with the Roadmap and current development focus.
+If you are interested in contributing significant code to the project, it is recommended that you read through design document in the prefengine_docs repo, and/or to coordinate the effort with one of the main developers in Discord before submitting a pull request. Before deciding to contribute, it is also a good idea to ensure your efforts are in alignment with the Roadmap and current development focus.
 
 By contributing code to this project, you agree that copyright for the code is placed under the Apache license.
 
